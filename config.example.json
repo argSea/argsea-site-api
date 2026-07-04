@@ -1,0 +1,19 @@
+{
+  "mongo": {
+    "host": "127.0.0.1",
+    "port": "27017",
+    "user": "argsea",
+    "pass": "changeme",
+    "dbName": "argSea2",
+    "authenticationDatabase": "argSea2"
+  },
+  "jwt": {
+    "secret": "changeme-long-random-string"
+  },
+  "media": {
+    "images": {
+      "save_path": "/var/www/media/images",
+      "web_path": "https://media.argsea.com/images"
+    }
+  }
+}

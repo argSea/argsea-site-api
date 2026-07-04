@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/argSea/portfolio_blog_api/argHex/in_adapter"
-	"github.com/argSea/portfolio_blog_api/argHex/out_adapter"
-	"github.com/argSea/portfolio_blog_api/argHex/service"
-	"github.com/argSea/portfolio_blog_api/argHex/stores"
+	"github.com/argSea/argsea-site-api/argHex/in_adapter"
+	"github.com/argSea/argsea-site-api/argHex/out_adapter"
+	"github.com/argSea/argsea-site-api/argHex/service"
+	"github.com/argSea/argsea-site-api/argHex/stores"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
@@ -92,10 +92,25 @@ func main() {
 	mUser := viper.GetString("mongo.user")
 	mPass := viper.GetString("mongo.pass")
 	mDB := viper.GetString("mongo.dbName")
+	mAuthDB := viper.GetString("mongo.authenticationDatabase")
+
+	// authSource falls back to the target database when not set explicitly
+	if "" == mAuthDB {
+		mAuthDB = mDB
+	}
+
 	jSecret := []byte(viper.GetString("jwt.secret"))
 
+	// JWT auth cannot run without a signing secret — fail fast with a pointer to the fix
+	if 0 == len(jSecret) {
+		missing_secret := "jwt.secret is missing or empty in the config file; add it (see config.example.json)"
+		fmt.Fprintf(os.Stderr, "error: %s\n", missing_secret)
+		log.Fatal(missing_secret)
+		os.Exit(1)
+	}
+
 	//setup mongo
-	mongo_db, mongo_err := stores.NewMongoStore(mUser, mPass, mHost, mDB)
+	mongo_db, mongo_err := stores.NewMongoStore(mUser, mPass, mHost, mDB, mAuthDB)
 
 	defer mongo_db.Client.Disconnect(context.Background())
 
@@ -109,21 +124,6 @@ func main() {
 	projectTable := "projects"
 	resumeTable := "resume"
 	skillTable := "skills"
-	authDB := 13
-
-	// setup redis
-	redis_host := viper.GetString("redis.host")
-	redis_port := viper.GetString("redis.port")
-	redis_pass := viper.GetString("redis.pass")
-	redis_user := viper.GetString("redis.user")
-
-	redis_store, redis_err := stores.NewRedisStore(redis_host, redis_port, redis_user, redis_pass, authDB)
-
-	if nil != redis_err {
-		fmt.Fprintf(os.Stderr, "error: %v\n", redis_err)
-		log.Fatal(redis_err)
-		os.Exit(1)
-	}
 
 	// media for users
 	save_path := viper.GetString("media.images.save_path")
@@ -166,11 +166,8 @@ func main() {
 
 	//Auth
 	log.Println("Initializing auth")
-	authRivia := stores.NewRivia(redis_store, authDB)
-	authRedisAdapter := out_adapter.NewAuthRedisAdapter(authRivia)
-	userAuthService := service.NewSessionAuthService(authRedisAdapter)
+	userAuthService := service.NewJWTAuthService(jSecret)
 	userLoginService := service.NewUserLoginService(userMongoAdapter)
-	// userJWTService := service.NewJWTAuthService(jSecret)
 	in_adapter.NewAuthMuxAdapter(userAuthService, userLoginService, jSecret, authRouter)
 
 	//Skills

@@ -1,6 +1,6 @@
 package out_port
 
-import "github.com/argSea/portfolio_blog_api/argHex/domain"
+import "github.com/argSea/argsea-site-api/argHex/domain"
 
 //Skill repo to connect to a store
 type SkillRepo interface {
