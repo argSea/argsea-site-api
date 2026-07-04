@@ -236,8 +236,16 @@ func (a authMuxAdapter) Validate(w http.ResponseWriter, r *http.Request) {
 
 func (a authMuxAdapter) setSession(user domain.User, w http.ResponseWriter, r *http.Request) (string, error) {
 	expires := time.Now().Add(time.Hour * 24)
-	roles := []string{"user"}
-	token, auth_error := a.authService.Generate(user.Id, expires, roles)
+
+	// mint the role stored on the user document — the doc is trustworthy because
+	// role never enters through a request body, only a direct DB update
+	role := in_port.PERM_USER
+
+	if in_port.PERM_ADMIN == user.Role {
+		role = in_port.PERM_ADMIN
+	}
+
+	token, auth_error := a.authService.Generate(user.Id, expires, []string{role})
 
 	if nil != auth_error {
 		return "", auth_error

@@ -128,6 +128,7 @@ func main() {
 	suggestionTable := "suggestions"
 	activityTable := "activity"
 	revisionTable := "revisions"
+	lanternTable := "lantern"
 
 	// media (the darkroom) — kept
 	save_path := viper.GetString("media.images.save_path")
@@ -200,6 +201,47 @@ func main() {
 	log.Println("Initializing auth")
 	userLoginService := service.NewUserLoginService(userMongoAdapter)
 	in_adapter.NewAuthMuxAdapter(userAuthService, userLoginService, webAuth, authRouter)
+
+	// the lantern — deploy-on-hoist. The config section IS the feature flag:
+	// no lantern section, no routes mounted, nothing else changes.
+	if viper.IsSet("lantern") {
+		log.Println("Initializing lantern")
+
+		lanternTimeout := viper.GetInt("lantern.timeout_seconds")
+
+		if 0 == lanternTimeout {
+			lanternTimeout = 600 // ten minutes is generous for a static build
+		}
+
+		lanternKeep := viper.GetInt("lantern.keep")
+
+		if 0 == lanternKeep {
+			lanternKeep = 2
+		}
+
+		lanternConfig := service.LanternConfig{
+			SiteDir:  viper.GetString("lantern.site_dir"),
+			BuildCmd: viper.GetStringSlice("lantern.build_cmd"),
+			DistDir:  viper.GetString("lantern.dist_dir"),
+			Keep:     lanternKeep,
+			Timeout:  time.Duration(lanternTimeout) * time.Second,
+			// env is an array of KEY=VALUE strings, NOT a JSON object: viper
+			// lowercases nested map keys on load, which would silently turn
+			// ARGSEA_API_URL into argsea_api_url. Slice values pass through intact.
+			Env: viper.GetStringSlice("lantern.env"),
+		}
+
+		lanternMordor := stores.NewMordor(mongo_db.DB.Collection(lanternTable), context.Background())
+		lanternService := service.NewLanternService(
+			lanternConfig,
+			out_adapter.NewLanternExecAdapter(),
+			out_adapter.NewLanternFSReleaseAdapter(viper.GetString("lantern.releases_dir"), viper.GetString("lantern.live_link")),
+			out_adapter.NewLanternMongoAdapter(lanternMordor),
+			activityService,
+		)
+		lanternRouter := router.PathPrefix("/1/lantern").Subrouter()
+		in_adapter.NewLanternMuxAdapter(lanternService, webAuth, lanternRouter)
+	}
 
 	// echo back origins
 	origins := handlers.AllowedOrigins([]string{"https://argsea.com", "https://www.argsea.com", "https://argsea.dev", "https://www.argsea.dev", "http://127.0.0.1:5173"})

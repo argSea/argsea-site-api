@@ -15,5 +15,15 @@
       "save_path": "/var/www/media/images",
       "web_path": "https://media.argsea.com/images"
     }
+  },
+  "lantern": {
+    "site_dir":        "/srv/argsea/site",
+    "build_cmd":       ["npm", "run", "build"],
+    "dist_dir":        "dist",
+    "releases_dir":    "/srv/argsea/releases",
+    "live_link":       "/srv/argsea/live",
+    "keep":            2,
+    "timeout_seconds": 600,
+    "env":             ["ARGSEA_API_URL=http://127.0.0.1:8181"]
   }
 }

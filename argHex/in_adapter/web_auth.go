@@ -65,17 +65,26 @@ func (w *WebAuth) Token(r *http.Request) string {
 
 // Authorized reports whether the request carries a valid JWT.
 func (w *WebAuth) Authorized(r *http.Request) bool {
+	_, authorized := w.Role(r)
+
+	return authorized
+}
+
+// Role returns the role claim of the request's validated JWT. authorized is
+// false when the request carries no token or the token doesn't validate — in
+// that case the role is meaningless and returned empty.
+func (w *WebAuth) Role(r *http.Request) (string, bool) {
 	token := w.Token(r)
 
 	if "" == token {
-		return false
+		return "", false
 	}
 
 	validation, err := w.auth.Validate(token)
 
-	if nil != err {
-		return false
+	if nil != err || !validation.Valid {
+		return "", false
 	}
 
-	return validation.Valid
+	return validation.Role, true
 }
