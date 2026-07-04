@@ -1,0 +1,1 @@
+generic portfolio/blog API
