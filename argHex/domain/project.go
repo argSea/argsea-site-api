@@ -11,8 +11,8 @@ type Stamp struct {
 	Shape string `json:"shape" bson:"shape,omitempty"` // rect | circle
 	Motif string `json:"motif" bson:"motif,omitempty"` // lighthouse | boat | sun | wave | moon | anchor | text
 	Ink   string `json:"ink" bson:"ink,omitempty"`     // #f0d9a8 | #93a0e8 (exact lowercase strings)
-	Cents string `json:"cents" bson:"cents,omitempty"` // denomination shown on rect stamps, "N¢"
-	Text  string `json:"text" bson:"text,omitempty"`   // caption for the text motif, ≤ 40 chars after trim
+	Cents string `json:"cents" bson:"cents,omitempty"` // denomination "N¢" — rect shape only
+	Text  string `json:"text" bson:"text,omitempty"`   // caption — text motif only (required then), ≤ 40 chars after trim
 }
 
 // Project is a "postcard from production" — the reshaped portfolio entry that

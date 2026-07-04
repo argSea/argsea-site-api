@@ -25,12 +25,18 @@ var stampInks = map[string]bool{"#f0d9a8": true, "#93a0e8": true}
 // digits followed by the cent sign, nothing else.
 var stampCents = regexp.MustCompile(`^[0-9]{1,2}¢$`)
 
-// validateStamp checks a stamp against the closed vocabulary. A nil stamp is
-// valid — the site falls back to its default decoration.
+// validateStamp normalizes a stamp in place and checks it against the closed
+// vocabulary. A nil stamp is valid — the site falls back to its default
+// decoration. Cents is coupled to the rect shape and text to the text motif
+// (operator ruling 2026-07-04): a stray field on the wrong variant is rejected
+// rather than silently stored unrendered.
 func validateStamp(stamp *domain.Stamp) error {
 	if nil == stamp {
 		return nil
 	}
+
+	// trim before measuring, so the store holds exactly what was validated
+	stamp.Text = strings.TrimSpace(stamp.Text)
 
 	if !stampShapes[stamp.Shape] {
 		return errors.New("stamp shape must be rect or circle")
@@ -44,11 +50,25 @@ func validateStamp(stamp *domain.Stamp) error {
 		return errors.New("stamp ink must be #f0d9a8 or #93a0e8")
 	}
 
+	// the denomination belongs to rect stamps only
+	if "" != stamp.Cents && "rect" != stamp.Shape {
+		return errors.New("stamp cents is only valid on a rect stamp")
+	}
+
 	if "" != stamp.Cents && !stampCents.MatchString(stamp.Cents) {
 		return errors.New("stamp cents must be one or two digits followed by ¢")
 	}
 
-	if 40 < utf8.RuneCountInString(strings.TrimSpace(stamp.Text)) {
+	// the text motif requires words; every other motif forbids them
+	if "text" == stamp.Motif && "" == stamp.Text {
+		return errors.New("stamp text is required for the text motif")
+	}
+
+	if "text" != stamp.Motif && "" != stamp.Text {
+		return errors.New("stamp text is only valid on the text motif")
+	}
+
+	if 40 < utf8.RuneCountInString(stamp.Text) {
 		return errors.New("stamp text must be 40 characters or fewer")
 	}
 

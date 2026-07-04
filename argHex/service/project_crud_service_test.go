@@ -360,22 +360,74 @@ func TestStampCentsPattern(t *testing.T) {
 	}
 }
 
+// textStamp returns a valid stamp on the text motif, for tests to mutate.
+func textStamp(text string) *domain.Stamp {
+	return &domain.Stamp{Shape: "circle", Motif: "text", Ink: "#93a0e8", Text: text}
+}
+
 func TestStampTextLengthCap(t *testing.T) {
 	projects := newProjects()
 
 	// exactly 40 characters is fine, and surrounding whitespace doesn't count
-	stamp := validStamp()
-	stamp.Text = "  " + strings.Repeat("a", 40) + "  "
+	stamp := textStamp("  " + strings.Repeat("a", 40) + "  ")
 
 	if _, err := projects.Create(domain.Project{Title: "Cap", Stamp: stamp}); nil != err {
 		t.Fatalf("expected a 40-char (after trim) text accepted, got %v", err)
 	}
 
-	over := validStamp()
-	over.Text = strings.Repeat("a", 41)
+	over := textStamp(strings.Repeat("a", 41))
 
 	if _, err := projects.Create(domain.Project{Title: "Cap", Stamp: over}); nil == err {
 		t.Fatalf("expected a 41-char text rejected")
+	}
+}
+
+func TestStampTextIsTrimmedOnStore(t *testing.T) {
+	projects := newProjects()
+
+	// the store holds exactly what was validated — no surrounding padding
+	saved, err := projects.Create(domain.Project{Title: "Trim", Stamp: textStamp("  AIR MAIL  ")})
+
+	if nil != err {
+		t.Fatalf("create with padded text failed: %v", err)
+	}
+
+	stored := projects.Read(saved.Id)
+
+	if nil == stored.Stamp || "AIR MAIL" != stored.Stamp.Text {
+		t.Fatalf("expected the stored text trimmed to %q, got %+v", "AIR MAIL", stored.Stamp)
+	}
+}
+
+func TestStampCentsRequiresRectShape(t *testing.T) {
+	projects := newProjects()
+
+	// a pattern-valid denomination on a circle stamp is still rejected —
+	// cents is coupled to the rect shape
+	stamp := validStamp()
+	stamp.Shape = "circle"
+
+	if _, err := projects.Create(domain.Project{Title: "Cents on circle", Stamp: stamp}); nil == err {
+		t.Fatalf("expected cents on a circle stamp rejected")
+	}
+}
+
+func TestStampTextCoupledToTextMotif(t *testing.T) {
+	projects := newProjects()
+
+	// text on any other motif is rejected, even when otherwise valid
+	stray := validStamp()
+	stray.Text = "AIR MAIL"
+
+	if _, err := projects.Create(domain.Project{Title: "Stray text", Stamp: stray}); nil == err {
+		t.Fatalf("expected text on a non-text motif rejected")
+	}
+
+	// and the text motif without words is meaningless — required then
+	for _, empty := range []string{"", "   "} {
+		if _, err := projects.Create(domain.Project{Title: "Wordless", Stamp: textStamp(empty)}); nil == err {
+			t.Fatalf("expected an empty text (%q) on the text motif rejected", empty)
+		}
 	}
 }
 
