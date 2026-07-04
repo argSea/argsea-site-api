@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -133,6 +134,37 @@ func TestUnauthPublishedByIdIsVisible(t *testing.T) {
 
 	if http.StatusOK != rec.Code {
 		t.Fatalf("expected 200 for a published document, got %d", rec.Code)
+	}
+}
+
+func TestCreateWithInvalidStampIs400(t *testing.T) {
+	_, _, token, router := newProjectRouter(t)
+
+	// ink outside the enum — the exact XSS vector the gate exists for
+	body := strings.NewReader(`{"title":"Bad stamp","stamp":{"shape":"rect","motif":"sun","ink":"expression(alert(1))"}}`)
+
+	req := httptest.NewRequest("POST", "/1/project", body)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if http.StatusBadRequest != rec.Code {
+		t.Fatalf("expected 400 for an invalid stamp, got %d", rec.Code)
+	}
+
+	// the rejection uses the standard errored response envelope
+	var envelope map[string]interface{}
+	json.Unmarshal(rec.Body.Bytes(), &envelope)
+
+	if "error" != envelope["status"] {
+		t.Fatalf("expected the error envelope, got %s", rec.Body.String())
+	}
+
+	// and nothing was written — the authed list still holds only the seeds
+	code, projects := getProjects(t, router, "/1/project", token)
+
+	if http.StatusOK != code || 2 != len(projects) {
+		t.Fatalf("rejected create must persist nothing, got %d projects", len(projects))
 	}
 }
 

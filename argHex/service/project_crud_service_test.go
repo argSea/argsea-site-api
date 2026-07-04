@@ -256,3 +256,186 @@ func TestRestoreClearsFieldsEmptyInSnapshot(t *testing.T) {
 		t.Fatalf("rolled-back revision must record moral empty, got %q", recorded.Moral)
 	}
 }
+
+// validStamp returns a stamp that passes every gate, for tests to mutate.
+func validStamp() *domain.Stamp {
+	return &domain.Stamp{Shape: "rect", Motif: "lighthouse", Ink: "#f0d9a8", Cents: "3¢"}
+}
+
+func TestValidStampAcceptedOnCreateAndUpdate(t *testing.T) {
+	projects := newProjects()
+
+	saved, err := projects.Create(domain.Project{Title: "Stamped", Stamp: validStamp()})
+
+	if nil != err {
+		t.Fatalf("create with a valid stamp failed: %v", err)
+	}
+
+	stored := projects.Read(saved.Id)
+
+	if nil == stored.Stamp || "lighthouse" != stored.Stamp.Motif || "3¢" != stored.Stamp.Cents {
+		t.Fatalf("expected the stamp persisted on create, got %+v", stored.Stamp)
+	}
+
+	// swap to the other shape/ink and a text motif on update
+	edited, err := projects.Update(domain.Project{
+		Id:    saved.Id,
+		Title: "Stamped",
+		Stamp: &domain.Stamp{Shape: "circle", Motif: "text", Ink: "#93a0e8", Text: "DAILY SINCE 1786"},
+	})
+
+	if nil != err {
+		t.Fatalf("update with a valid stamp failed: %v", err)
+	}
+
+	if nil == edited.Stamp || "circle" != edited.Stamp.Shape || "DAILY SINCE 1786" != edited.Stamp.Text {
+		t.Fatalf("expected the stamp replaced on update, got %+v", edited.Stamp)
+	}
+}
+
+func TestStampRejectsOutOfSetEnumValues(t *testing.T) {
+	projects := newProjects()
+
+	// each enum field in turn, mutated to a value outside its set — uppercase
+	// ink included, because the contract is exact lowercase strings
+	cases := map[string]func(s *domain.Stamp){
+		"shape": func(s *domain.Stamp) { s.Shape = "triangle" },
+		"motif": func(s *domain.Stamp) { s.Motif = "kraken" },
+		"ink":   func(s *domain.Stamp) { s.Ink = "#F0D9A8" },
+	}
+
+	for field, corrupt := range cases {
+		stamp := validStamp()
+		corrupt(stamp)
+
+		if _, err := projects.Create(domain.Project{Title: "Bad " + field, Stamp: stamp}); nil == err {
+			t.Fatalf("expected create to reject an out-of-set %s", field)
+		}
+	}
+
+	// none of the rejected creates may have written anything
+	all, _ := projects.List(false, 0)
+
+	if 0 != len(all) {
+		t.Fatalf("rejected creates must persist nothing, found %d projects", len(all))
+	}
+
+	// the update path rejects too, and the stored stamp survives untouched
+	saved, _ := projects.Create(domain.Project{Title: "Good", Stamp: validStamp()})
+
+	bad := validStamp()
+	bad.Ink = "javascript:alert(1)"
+
+	if _, err := projects.Update(domain.Project{Id: saved.Id, Title: "Good", Stamp: bad}); nil == err {
+		t.Fatalf("expected update to reject an out-of-set ink")
+	}
+
+	stored := projects.Read(saved.Id)
+
+	if nil == stored.Stamp || "#f0d9a8" != stored.Stamp.Ink {
+		t.Fatalf("rejected update must leave the stored stamp intact, got %+v", stored.Stamp)
+	}
+}
+
+func TestStampCentsPattern(t *testing.T) {
+	projects := newProjects()
+
+	// one or two digits plus the cent sign; empty means "no denomination"
+	for _, ok := range []string{"3¢", "12¢", ""} {
+		stamp := validStamp()
+		stamp.Cents = ok
+
+		if _, err := projects.Create(domain.Project{Title: "Cents", Stamp: stamp}); nil != err {
+			t.Fatalf("expected cents %q accepted, got %v", ok, err)
+		}
+	}
+
+	for _, bad := range []string{"123¢", "3c", "¢", "3¢ ", "¢3"} {
+		stamp := validStamp()
+		stamp.Cents = bad
+
+		if _, err := projects.Create(domain.Project{Title: "Cents", Stamp: stamp}); nil == err {
+			t.Fatalf("expected cents %q rejected", bad)
+		}
+	}
+}
+
+func TestStampTextLengthCap(t *testing.T) {
+	projects := newProjects()
+
+	// exactly 40 characters is fine, and surrounding whitespace doesn't count
+	stamp := validStamp()
+	stamp.Text = "  " + strings.Repeat("a", 40) + "  "
+
+	if _, err := projects.Create(domain.Project{Title: "Cap", Stamp: stamp}); nil != err {
+		t.Fatalf("expected a 40-char (after trim) text accepted, got %v", err)
+	}
+
+	over := validStamp()
+	over.Text = strings.Repeat("a", 41)
+
+	if _, err := projects.Create(domain.Project{Title: "Cap", Stamp: over}); nil == err {
+		t.Fatalf("expected a 41-char text rejected")
+	}
+}
+
+func TestAbsentStampIsValid(t *testing.T) {
+	projects := newProjects()
+
+	// no stamp at all is the valid default state — the site falls back to its
+	// default decoration
+	saved, err := projects.Create(domain.Project{Title: "Unstamped"})
+
+	if nil != err {
+		t.Fatalf("create without a stamp failed: %v", err)
+	}
+
+	if nil != saved.Stamp {
+		t.Fatalf("expected no stamp on the saved project, got %+v", saved.Stamp)
+	}
+}
+
+func TestStampRoundTripsThroughSnapshotRestore(t *testing.T) {
+	projects := newProjects()
+
+	// rev 1: lighthouse rect — rev 2: text circle
+	saved, _ := projects.Create(domain.Project{Title: "Round trip", Stamp: validStamp()})
+	projects.Update(domain.Project{
+		Id:    saved.Id,
+		Title: "Round trip",
+		Stamp: &domain.Stamp{Shape: "circle", Motif: "text", Ink: "#93a0e8", Text: "AIR MAIL"},
+	})
+
+	revs, _ := projects.Revisions(saved.Id, 100)
+	restored, err := projects.Restore(saved.Id, revs[len(revs)-1].Id)
+
+	if nil != err {
+		t.Fatalf("restore failed: %v", err)
+	}
+
+	// the original stamp comes back exactly as snapshotted
+	if nil == restored.Stamp || "rect" != restored.Stamp.Shape || "lighthouse" != restored.Stamp.Motif || "3¢" != restored.Stamp.Cents {
+		t.Fatalf("expected restore to bring the original stamp back, got %+v", restored.Stamp)
+	}
+}
+
+func TestUpdateWithoutStampClearsIt(t *testing.T) {
+	projects := newProjects()
+
+	saved, _ := projects.Create(domain.Project{Title: "Clear me", Stamp: validStamp()})
+
+	// PUT is full-replace: a stamp omitted from the update is a stamp removed
+	cleared, err := projects.Update(domain.Project{Id: saved.Id, Title: "Clear me"})
+
+	if nil != err {
+		t.Fatalf("update failed: %v", err)
+	}
+
+	if nil != cleared.Stamp {
+		t.Fatalf("expected the stamp cleared by an update without one, got %+v", cleared.Stamp)
+	}
+
+	if nil != projects.Read(saved.Id).Stamp {
+		t.Fatalf("stored document should have no stamp after the clearing update")
+	}
+}
