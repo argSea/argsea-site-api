@@ -16,4 +16,5 @@ const (
 	EntityHobby      = "hobby"
 	EntitySuggestion = "suggestion"
 	EntityCopy       = "copy"
+	EntityLantern    = "lantern"
 )
