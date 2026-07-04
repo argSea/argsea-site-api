@@ -2,7 +2,7 @@ package domain
 
 type Users []User
 
-//Entity // domain
+// Entity // domain
 type User struct {
 	//Model
 	Id            string        `json:"id" bson:"_id,omitempty"`

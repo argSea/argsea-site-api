@@ -16,20 +16,18 @@ import (
 	"github.com/gorilla/mux"
 )
 
-//FROM USER TO APP
+// FROM USER TO APP
 type userMuxAdapter struct {
-	user    in_port.UserCRUDService
-	resume  in_port.UserResumeService
-	project in_port.UserProjectService
-	media   in_port.MediaService
+	user  in_port.UserCRUDService
+	media in_port.MediaService
+	auth  *WebAuth
 }
 
-func NewUserMuxAdapter(u in_port.UserCRUDService, r in_port.UserResumeService, p in_port.UserProjectService, m in_port.MediaService, router *mux.Router) {
+func NewUserMuxAdapter(u in_port.UserCRUDService, m in_port.MediaService, auth *WebAuth, router *mux.Router) {
 	adapter := &userMuxAdapter{
-		user:    u,
-		resume:  r,
-		project: p,
-		media:   m,
+		user:  u,
+		media: m,
+		auth:  auth,
 	}
 
 	//user service
@@ -38,20 +36,12 @@ func NewUserMuxAdapter(u in_port.UserCRUDService, r in_port.UserResumeService, p
 	router.HandleFunc("/{id}", adapter.Get).Methods("GET")
 	router.HandleFunc("/{id}", adapter.Update).Methods("PUT")
 	router.HandleFunc("/{id}", adapter.Delete).Methods("DELETE")
-	router.HandleFunc("/{id}/resumes", adapter.GetResumes).Methods("GET")
-	router.HandleFunc("/{id}/projects", adapter.GetProjects).Methods("GET")
 
 	router.HandleFunc("/", adapter.GetAll).Methods("GET")
 	router.HandleFunc("/", adapter.Create).Methods("POST")
 	router.HandleFunc("/{id}/", adapter.Get).Methods("GET")
 	router.HandleFunc("/{id}/", adapter.Update).Methods("PUT")
 	router.HandleFunc("/{id}/", adapter.Delete).Methods("DELETE")
-
-	//resume service
-	router.HandleFunc("/{id}/resumes/", adapter.GetResumes).Methods("GET")
-
-	//project service
-	router.HandleFunc("/{id}/projects/", adapter.GetProjects).Methods("GET")
 }
 
 func (u userMuxAdapter) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -152,30 +142,7 @@ func (u userMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// check auth
-	authorized, auth_err := u.checkAuth(r)
-
-	if nil != auth_err {
-		response := data_objects.ErroredResponseObject{
-			Status:  "error",
-			Code:    500,
-			Message: auth_err.Error(),
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
-
-		return
-	}
-
-	if !authorized {
-		response := data_objects.ErroredResponseObject{
-			Status:  "error",
-			Code:    401,
-			Message: "Unauthorized",
-		}
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
-
+	if !requireAuth(u.auth, w, r) {
 		return
 	}
 
@@ -299,30 +266,7 @@ func (u userMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	user.Id = id
 
-	// check auth
-	authorized, auth_err := u.checkAuth(r)
-
-	if nil != auth_err {
-		response := data_objects.ErroredResponseObject{
-			Status:  "error",
-			Code:    500,
-			Message: auth_err.Error(),
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
-
-		return
-	}
-
-	if !authorized {
-		response := data_objects.ErroredResponseObject{
-			Status:  "error",
-			Code:    401,
-			Message: "Unauthorized",
-		}
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
-
+	if !requireAuth(u.auth, w, r) {
 		return
 	}
 
@@ -526,30 +470,7 @@ func (u userMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	user.Id = id
 
-	// check auth
-	authorized, auth_err := u.checkAuth(r)
-
-	if nil != auth_err {
-		response := data_objects.ErroredResponseObject{
-			Status:  "error",
-			Code:    500,
-			Message: auth_err.Error(),
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
-
-		return
-	}
-
-	if !authorized {
-		response := data_objects.ErroredResponseObject{
-			Status:  "error",
-			Code:    401,
-			Message: "Unauthorized",
-		}
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
-
+	if !requireAuth(u.auth, w, r) {
 		return
 	}
 
@@ -573,165 +494,4 @@ func (u userMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(resp)
-}
-
-func (u userMuxAdapter) GetResumes(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
-
-	defer func() {
-		if err := recover(); err != nil {
-			response := data_objects.ErroredResponseObject{
-				Status:  "error",
-				Code:    500,
-				Message: err,
-			}
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response)
-		}
-	}()
-
-	userID := mux.Vars(r)["id"]
-	user_resumes, count := u.resume.GetResumes(userID)
-
-	response := data_objects.ResumeResponseObject{
-		Status: "ok",
-		Code:   200,
-		Count:  count,
-	}
-
-	for i := 0; i < len(user_resumes); i++ {
-		response.Resumes = append(response.Resumes, user_resumes[i])
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
-
-func (u userMuxAdapter) GetProjects(w http.ResponseWriter, r *http.Request) {
-	defer func() {
-		if err := recover(); err != nil {
-			response := data_objects.ErroredResponseObject{
-				Status:  "error",
-				Code:    500,
-				Message: err,
-			}
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(response)
-		}
-	}()
-
-	limit := int64(0)
-	offset := int64(0)
-	sort := ""
-
-	if nil != r.URL.Query()["limit"] {
-		// convert string to int64
-		i, ierr := strconv.ParseInt(r.URL.Query()["limit"][0], 10, 64)
-
-		if nil != ierr {
-			// do nothing
-		} else {
-			limit = i
-		}
-	}
-
-	if nil != r.URL.Query()["offset"] {
-		// convert string to int64
-		i, ierr := strconv.ParseInt(r.URL.Query()["offset"][0], 10, 64)
-
-		if nil != ierr {
-			// do nothing
-		} else {
-			offset = i
-		}
-	}
-
-	if nil != r.URL.Query()["sort"] {
-		sort = r.URL.Query()["sort"][0]
-
-		if "" == sort {
-			sort = "nil"
-		}
-	}
-
-	// if limit and offset are 0, check for range query string
-	if 0 == limit && 0 == offset {
-		if nil != r.URL.Query()["range"] {
-			// convert [0, 10] to limit = 10, offset = 0
-			range_str := r.URL.Query()["range"][0]
-			range_str = strings.Replace(range_str, "[", "", -1)
-			range_str = strings.Replace(range_str, "]", "", -1)
-
-			range_arr := strings.Split(range_str, ",")
-			limit, _ = strconv.ParseInt(range_arr[1], 10, 64)
-			offset, _ = strconv.ParseInt(range_arr[0], 10, 64)
-		}
-	}
-
-	userID := mux.Vars(r)["id"]
-	user_projects, count := u.project.GetProjects(userID)
-
-	response := data_objects.ProjectResponseObject{
-		Status: "ok",
-		Code:   200,
-		Count:  count,
-	}
-
-	for i := 0; i < len(user_projects); i++ {
-		response.Projects = append(response.Projects, user_projects[i])
-	}
-
-	total := len(response.Projects)
-
-	// w.Header().Add("Content-Range", "users "+strconv.FormatInt(offset, 10)+"-"+strconv.FormatInt(offset+limit, 10)+"/"+strconv.FormatInt(int64(total), 10))
-	w.Header().Add("X-Total-Count", strconv.FormatInt(int64(total), 10))
-	// w.Header().Add("range", "users "+strconv.FormatInt(offset, 10)+"-"+strconv.FormatInt(offset+limit, 10)+"/"+strconv.FormatInt(int64(total), 10))
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response.Projects)
-}
-
-func (u userMuxAdapter) checkAuth(r *http.Request) (bool, error) {
-	// check auth
-	validate_endpoint := "https://api.argsea.com/1/auth/validate/"
-
-	// pass along all cookies
-	cookies := r.Cookies()
-	cookie_string := ""
-
-	for i := 0; i < len(cookies); i++ {
-		cookie_string += cookies[i].Name + "=" + cookies[i].Value + ";"
-	}
-
-	log.Println(cookie_string)
-
-	req, req_err := http.NewRequest("GET", validate_endpoint, nil)
-
-	if nil != req_err {
-		return false, req_err
-	}
-
-	req.Header.Add("Cookie", cookie_string)
-
-	val_res, val_err := http.DefaultClient.Do(req)
-
-	if nil != val_err {
-		return false, val_err
-	}
-
-	defer val_res.Body.Close()
-
-	val_body, val_body_err := ioutil.ReadAll(val_res.Body)
-
-	if nil != val_body_err {
-		return false, val_body_err
-	}
-
-	var val_data map[string]interface{}
-	json.Unmarshal(val_body, &val_data)
-
-	if "ok" != val_data["status"] {
-		return false, nil
-	}
-
-	return true, nil
 }

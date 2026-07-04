@@ -1,0 +1,81 @@
+package in_adapter
+
+import (
+	"net/http"
+	"strings"
+
+	"github.com/argSea/argsea-site-api/argHex/in_port"
+	"github.com/gorilla/sessions"
+)
+
+const authCookieName = "auth-token"
+
+// WebAuth is the single request-authentication mechanism for every adapter:
+// it extracts the JWT from the request and validates it in-process through
+// in_port.AuthService — no HTTP round-trips to a validate endpoint. The auth
+// adapter shares the same cookie store for issuing sessions on login, so there
+// is exactly one place that knows how a token travels.
+type WebAuth struct {
+	auth  in_port.AuthService
+	store *sessions.CookieStore
+}
+
+func NewWebAuth(auth in_port.AuthService, secret []byte) *WebAuth {
+	store := sessions.NewCookieStore(secret)
+	store.Options = &sessions.Options{
+		Domain:   "argsea.com",
+		Path:     "/",
+		MaxAge:   24 * 60 * 60,
+		HttpOnly: true,
+		Secure:   true,
+	}
+
+	return &WebAuth{
+		auth:  auth,
+		store: store,
+	}
+}
+
+// Store exposes the shared cookie store so the auth adapter can save and clear
+// sessions with the same encoding the extractor reads.
+func (w *WebAuth) Store() *sessions.CookieStore {
+	return w.store
+}
+
+// Token pulls the JWT off the request: the auth-token session cookie first,
+// falling back to an Authorization: Bearer header (handy for curl and any
+// client that doesn't hold the cookie). Empty string means no token.
+func (w *WebAuth) Token(r *http.Request) string {
+	session, err := w.store.Get(r, authCookieName)
+
+	if nil == err && !session.IsNew {
+		if token, ok := session.Values["token"].(string); ok && "" != token {
+			return token
+		}
+	}
+
+	header := r.Header.Get("Authorization")
+
+	if strings.HasPrefix(header, "Bearer ") {
+		return strings.TrimPrefix(header, "Bearer ")
+	}
+
+	return ""
+}
+
+// Authorized reports whether the request carries a valid JWT.
+func (w *WebAuth) Authorized(r *http.Request) bool {
+	token := w.Token(r)
+
+	if "" == token {
+		return false
+	}
+
+	validation, err := w.auth.Validate(token)
+
+	if nil != err {
+		return false
+	}
+
+	return validation.Valid
+}

@@ -3,9 +3,9 @@ package out_port
 import "github.com/argSea/argsea-site-api/argHex/domain"
 
 type ProjectRepo interface {
-	GetProjectsByUserID(id string) (domain.Projects, int64, error)
+	List(publishedOnly bool, limit int64) (domain.Projects, error)
 	Get(id string) domain.Project
-	Set(project domain.Project) error
 	Add(project domain.Project) (string, error)
-	Remove(project domain.Project) error
+	Set(project domain.Project) error
+	Remove(id string) error
 }
