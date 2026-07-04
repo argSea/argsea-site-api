@@ -1,20 +1,7 @@
 package data_objects
 
-//general - outward
-// type BaseResume struct {
-// 	Id            string      `json:"resumeID"`
-// 	UserID        string      `json:"userID"`
-// 	About         string      `json:"about"`
-// 	Experiences   interface{} `json:"experiences"`
-// 	Education     interface{} `json:"education"`
-// 	ExtraCourses  interface{} `json:"extraCourses"`
-// 	SkillSections interface{} `json:"skills"`
-// }
-
-//general - inward
-
-//web
-////general
+// web
+// //general
 type ErroredResponseObject struct {
 	Status  string      `json:"status"`
 	Code    int64       `json:"code"`
@@ -26,7 +13,7 @@ type ItemLessResponseObject struct {
 	Code   int64  `json:"code"`
 }
 
-////user
+// //user
 type UserResponseObject struct {
 	Status string        `json:"status"`
 	Code   int64         `json:"code"`

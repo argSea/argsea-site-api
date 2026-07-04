@@ -2,7 +2,6 @@ package in_adapter
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
@@ -223,23 +222,6 @@ func (a authMuxAdapter) Validate(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("User is authorized! " + v_response.UserID)
 
-	// userID := v_response.UserID
-	// role := v_response.Role
-
-	// get user
-	// user := a.getUserDetails(userID)
-	// log.Println("User details: ", user)
-
-	// return user details
-	// response := data_objects.UserResponseObject{
-	// 	Status: "ok",
-	// 	Code:   200,
-	// }
-
-	// response.Users = append(response.Users, user)
-
-	// todo: add role to response
-
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(struct {
 		Status  string `json:"status"`
@@ -273,82 +255,4 @@ func (a authMuxAdapter) setSession(user domain.User, w http.ResponseWriter, r *h
 	log.Println("Cookie set: ", session)
 
 	return token, nil
-}
-
-// func (a authMuxAdapter) checkAuth(r *http.Request, w http.ResponseWriter, userID string) bool {
-// 	// token := r.Header.Get("Authorization")
-// 	session, session_err := sessions.NewCookieStore(a.secret).Get(r, "auth-token")
-
-// 	if nil != session_err {
-// 		log.Println("Error getting session: ", session_err)
-// 		return false
-// 	}
-
-// 	token := session.Values["token"].(string)
-
-// 	// check if user is authorized
-// 	authorized := a.authService.IsAuthorized(userID, token, in_port.PERM_USER, in_port.PERM_ADMIN)
-
-// 	if !authorized {
-// 		log.Println("User not authorized! " + userID)
-// 		return false
-// 	}
-
-// 	user := a.getUserDetails(userID)
-
-// 	// if authorized, refresh token
-// 	a.setSession(user, w, r)
-
-// 	return true
-// }
-
-func (a authMuxAdapter) getUserDetails(userID string) domain.User {
-	user_endpoint := "https://api.argsea.com/1/user/" + userID + "/"
-	res, err := http.Get(user_endpoint)
-
-	if nil != err {
-		log.Println("Error getting user: ", err)
-		return domain.User{}
-	}
-
-	defer res.Body.Close()
-
-	body, body_err := ioutil.ReadAll(res.Body)
-
-	if nil != body_err {
-		log.Println("Error reading body: ", body_err)
-		return domain.User{}
-	}
-
-	log.Println("User details: ", string(body))
-
-	// unmarshal json
-	var userReponse data_objects.UserResponseObject
-	json_err := json.Unmarshal(body, &userReponse)
-
-	if nil != json_err {
-		log.Println("Error unmarshalling user: ", json_err)
-		return domain.User{}
-	}
-
-	log.Println("User details: ", userReponse.Users[0])
-
-	// marshall userResponse.Users[0] to json
-	user_json, user_json_err := json.Marshal(userReponse.Users[0])
-
-	if nil != user_json_err {
-		log.Println("Error marshalling user: ", user_json_err)
-		return domain.User{}
-	}
-
-	// unmarshal json
-	var final_user domain.User
-	json_err = json.Unmarshal(user_json, &final_user)
-
-	if nil != json_err {
-		log.Println("Error unmarshalling user: ", json_err)
-		return domain.User{}
-	}
-
-	return final_user
 }

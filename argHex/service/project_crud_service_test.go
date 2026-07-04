@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -203,5 +204,55 @@ func TestBodyIsSanitizedOnWrite(t *testing.T) {
 
 	if !strings.Contains(saved.Body, "hello") {
 		t.Fatalf("sanitizer should keep safe content, body was %q", saved.Body)
+	}
+}
+
+func TestUpdateClearsEmptiedFields(t *testing.T) {
+	projects := newProjects()
+
+	saved, _ := projects.Create(domain.Project{Title: "Keep", Moral: "a moral", Tags: []string{"one", "two"}})
+
+	// an update that empties moral and tags must actually clear them —
+	// replace semantics, not a $set merge
+	cleared, err := projects.Update(domain.Project{Id: saved.Id, Title: "Keep"})
+
+	if nil != err {
+		t.Fatalf("update failed: %v", err)
+	}
+
+	if "" != cleared.Moral || 0 != len(cleared.Tags) {
+		t.Fatalf("expected moral/tags cleared, got %q / %v", cleared.Moral, cleared.Tags)
+	}
+}
+
+func TestRestoreClearsFieldsEmptyInSnapshot(t *testing.T) {
+	projects := newProjects()
+
+	// rev 1: moral empty — rev 2: moral filled
+	saved, _ := projects.Create(domain.Project{Title: "Original"})
+	projects.Update(domain.Project{Id: saved.Id, Title: "Original", Moral: "added later"})
+
+	revs, _ := projects.Revisions(saved.Id, 100)
+	restored, err := projects.Restore(saved.Id, revs[len(revs)-1].Id)
+
+	if nil != err {
+		t.Fatalf("restore failed: %v", err)
+	}
+
+	// the field filled in the live doc but empty in the snapshot must be empty
+	// after restore, and the new "rolled back" revision must record it empty
+	if "" != restored.Moral {
+		t.Fatalf("expected restore to clear moral, got %q", restored.Moral)
+	}
+
+	after, _ := projects.Revisions(saved.Id, 1)
+	var recorded domain.Project
+
+	if err := json.Unmarshal([]byte(after[0].Snapshot), &recorded); nil != err {
+		t.Fatalf("could not parse rolled-back snapshot: %v", err)
+	}
+
+	if "" != recorded.Moral {
+		t.Fatalf("rolled-back revision must record moral empty, got %q", recorded.Moral)
 	}
 }

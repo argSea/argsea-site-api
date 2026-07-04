@@ -48,7 +48,7 @@ func (s siteCopyMongoAdapter) Save(copy domain.SiteCopy) (domain.SiteCopy, error
 
 	copy.Id = ""
 
-	if err := s.store.Update(existing.Id, copy); nil != err {
+	if err := s.store.Replace(existing.Id, copy); nil != err {
 		return domain.SiteCopy{}, err
 	}
 

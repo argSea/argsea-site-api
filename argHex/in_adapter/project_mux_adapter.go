@@ -43,7 +43,11 @@ func NewProjectMuxAdapter(project in_port.ProjectCRUDService, auth *WebAuth, rou
 }
 
 func (a projectMuxAdapter) List(w http.ResponseWriter, r *http.Request) {
-	projects, err := a.project.List(queryFlag(r, "published"), queryLimit(r, 0))
+	// drafts are for the keeper only: unauthenticated readers always get the
+	// published-only view, whatever the query says
+	publishedOnly := queryFlag(r, "published") || !a.auth.Authorized(r)
+
+	projects, err := a.project.List(publishedOnly, queryLimit(r, 0))
 
 	if nil != err {
 		writeError(w, 500, err.Error())
@@ -59,7 +63,16 @@ func (a projectMuxAdapter) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a projectMuxAdapter) Get(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, a.project.Read(mux.Vars(r)["id"]))
+	project := a.project.Read(mux.Vars(r)["id"])
+
+	// unauthenticated readers only see published documents; a 404 (not 401)
+	// avoids confirming that a draft exists
+	if domain.StatusPublished != project.Status && !a.auth.Authorized(r) {
+		writeError(w, 404, "Not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, project)
 }
 
 func (a projectMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {

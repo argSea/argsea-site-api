@@ -56,7 +56,7 @@ func (h hobbyMongoAdapter) Add(hobby domain.Hobby) (string, error) {
 func (h hobbyMongoAdapter) Set(hobby domain.Hobby) error {
 	key := hobby.Id
 	hobby.Id = ""
-	return h.store.Update(key, hobby)
+	return h.store.Replace(key, hobby)
 }
 
 func (h hobbyMongoAdapter) Remove(id string) error {

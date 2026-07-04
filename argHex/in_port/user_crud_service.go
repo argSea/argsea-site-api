@@ -2,7 +2,7 @@ package in_port
 
 import "github.com/argSea/argsea-site-api/argHex/domain"
 
-//User service for CRUD
+// User service for CRUD
 type UserCRUDService interface {
 	Create(user domain.User) (string, error)
 	Read(id string) domain.User

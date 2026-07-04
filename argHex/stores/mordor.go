@@ -157,18 +157,40 @@ func (m *Mordor) Update(key string, newData interface{}) error {
 	return nil
 }
 
-// UpdateManyByField applies a $set to every document whose field matches value.
-// Used to clear the "current" flag across an entity's revisions before a new
-// current revision is written.
-func (m *Mordor) UpdateManyByField(field string, value interface{}, set interface{}) error {
-	log.Printf("field: %v; value %v; set %+v\n", field, value, set)
+// Replace swaps the stored document for newData wholesale (ReplaceOne, not
+// $set). Content updates go through this so a field the caller cleared is
+// actually cleared — $set over bson-omitempty fields silently merges instead.
+// This exactly matches the snapshot/restore model: what you write is what the
+// document becomes.
+func (m *Mordor) Replace(key string, newData interface{}) error {
+	log.Printf("key: %v; new_data %+v\n", key, newData)
+	if nil == m.collection {
+		return errors.New("connection not setup")
+	}
+
+	id, idErr := primitive.ObjectIDFromHex(key)
+
+	if nil != idErr {
+		return errors.New("invalid key")
+	}
+
+	_, err := m.collection.ReplaceOne(m.ctx, bson.M{"_id": id}, newData)
+
+	return err
+}
+
+// UpdateMany applies a $set to every document matching filter. Used to clear
+// the "current" flag across an entity's other revisions after a new current
+// revision lands.
+func (m *Mordor) UpdateMany(filter interface{}, set interface{}) error {
+	log.Printf("filter: %+v; set %+v\n", filter, set)
 	if nil == m.collection {
 		return errors.New("connection not setup")
 	}
 
 	_, err := m.collection.UpdateMany(
 		m.ctx,
-		bson.M{field: value},
+		filter,
 		bson.D{
 			{Key: "$set", Value: set},
 		},

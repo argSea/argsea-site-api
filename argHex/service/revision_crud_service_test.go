@@ -44,14 +44,9 @@ func TestSnapshotMovesCurrentPointer(t *testing.T) {
 		t.Fatalf("expected exactly 1 current revision, got %d", countCurrent(all))
 	}
 
-	current := revisions.Current(domain.EntityProject, "p1")
-
-	if current.Id != latest {
-		t.Fatalf("expected current to be newest revision %q, got %q", latest, current.Id)
-	}
-
-	if !current.IsCurrent {
-		t.Fatalf("current revision should carry the current flag")
+	// the pointer sits on the newest revision
+	if all[0].Id != latest || !all[0].IsCurrent {
+		t.Fatalf("expected newest revision %q to carry the current flag, got %q (current=%v)", latest, all[0].Id, all[0].IsCurrent)
 	}
 
 	// the first revision must no longer be current

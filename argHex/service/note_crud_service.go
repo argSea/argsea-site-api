@@ -57,7 +57,10 @@ func (n noteCRUDService) Create(note domain.Note) (domain.Note, error) {
 	}
 
 	saved := n.repo.Get(id)
-	n.snapshot(saved, "created")
+	if err := n.snapshot(saved, "created"); nil != err {
+		return domain.Note{}, err
+	}
+
 	n.record("note \""+saved.Title+"\" created", saved.Id)
 
 	return saved, nil
@@ -84,7 +87,10 @@ func (n noteCRUDService) Update(note domain.Note) (domain.Note, error) {
 	}
 
 	saved := n.repo.Get(note.Id)
-	n.snapshot(saved, "edited")
+	if err := n.snapshot(saved, "edited"); nil != err {
+		return domain.Note{}, err
+	}
+
 	n.record("note \""+saved.Title+"\" edited", saved.Id)
 
 	return saved, nil
@@ -170,23 +176,28 @@ func (n noteCRUDService) Restore(id string, revisionID string) (domain.Note, err
 	}
 
 	saved := n.repo.Get(id)
-	n.snapshot(saved, "rolled back")
+	if err := n.snapshot(saved, "rolled back"); nil != err {
+		return domain.Note{}, err
+	}
+
 	n.record("note \""+saved.Title+"\" rolled back", id)
 
 	return saved, nil
 }
 
-func (n noteCRUDService) snapshot(note domain.Note, verb string) {
+// snapshot marshals the full document and records it as the new current
+// revision. A failed snapshot fails the write — history must not silently
+// diverge from the live document.
+func (n noteCRUDService) snapshot(note domain.Note, verb string) error {
 	data, err := json.Marshal(note)
 
 	if nil != err {
-		log.Printf("note snapshot marshal failed for %v: %v\n", note.Id, err)
-		return
+		return err
 	}
 
-	if _, err := n.revisions.Snapshot(domain.EntityNote, note.Id, string(data), verb+": "+note.Title); nil != err {
-		log.Printf("note snapshot failed for %v: %v\n", note.Id, err)
-	}
+	_, err = n.revisions.Snapshot(domain.EntityNote, note.Id, string(data), verb+": "+note.Title)
+
+	return err
 }
 
 func (n noteCRUDService) record(message string, id string) {

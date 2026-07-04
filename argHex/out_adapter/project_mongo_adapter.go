@@ -53,8 +53,8 @@ func (p projectMongoAdapter) Add(project domain.Project) (string, error) {
 
 func (p projectMongoAdapter) Set(project domain.Project) error {
 	key := project.Id
-	project.Id = "" // unset so mongo doesn't try to set it
-	return p.store.Update(key, project)
+	project.Id = "" // replacement doc must not carry _id; mongo keeps the existing one
+	return p.store.Replace(key, project)
 }
 
 func (p projectMongoAdapter) Remove(id string) error {

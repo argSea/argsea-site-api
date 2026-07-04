@@ -52,7 +52,7 @@ func (n noteMongoAdapter) Add(note domain.Note) (string, error) {
 func (n noteMongoAdapter) Set(note domain.Note) error {
 	key := note.Id
 	note.Id = ""
-	return n.store.Update(key, note)
+	return n.store.Replace(key, note)
 }
 
 func (n noteMongoAdapter) Remove(id string) error {

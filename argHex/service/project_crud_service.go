@@ -59,7 +59,10 @@ func (p projectCRUDService) Create(project domain.Project) (domain.Project, erro
 	}
 
 	saved := p.repo.Get(id)
-	p.snapshot(saved, "created")
+	if err := p.snapshot(saved, "created"); nil != err {
+		return domain.Project{}, err
+	}
+
 	p.record("postcard \""+saved.Title+"\" created", saved.Id)
 
 	return saved, nil
@@ -86,7 +89,10 @@ func (p projectCRUDService) Update(project domain.Project) (domain.Project, erro
 	}
 
 	saved := p.repo.Get(project.Id)
-	p.snapshot(saved, "edited")
+	if err := p.snapshot(saved, "edited"); nil != err {
+		return domain.Project{}, err
+	}
+
 	p.record("postcard \""+saved.Title+"\" edited", saved.Id)
 
 	return saved, nil
@@ -173,25 +179,28 @@ func (p projectCRUDService) Restore(id string, revisionID string) (domain.Projec
 	}
 
 	saved := p.repo.Get(id)
-	p.snapshot(saved, "rolled back")
+	if err := p.snapshot(saved, "rolled back"); nil != err {
+		return domain.Project{}, err
+	}
+
 	p.record("postcard \""+saved.Title+"\" rolled back", id)
 
 	return saved, nil
 }
 
 // snapshot marshals the full document and records it as the new current
-// revision. Snapshot failures are logged, not fatal — the write already landed.
-func (p projectCRUDService) snapshot(project domain.Project, verb string) {
+// revision. A failed snapshot fails the write — history must not silently
+// diverge from the live document.
+func (p projectCRUDService) snapshot(project domain.Project, verb string) error {
 	data, err := json.Marshal(project)
 
 	if nil != err {
-		log.Printf("project snapshot marshal failed for %v: %v\n", project.Id, err)
-		return
+		return err
 	}
 
-	if _, err := p.revisions.Snapshot(domain.EntityProject, project.Id, string(data), verb+": "+project.Title); nil != err {
-		log.Printf("project snapshot failed for %v: %v\n", project.Id, err)
-	}
+	_, err = p.revisions.Snapshot(domain.EntityProject, project.Id, string(data), verb+": "+project.Title)
+
+	return err
 }
 
 func (p projectCRUDService) record(message string, id string) {

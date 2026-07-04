@@ -13,6 +13,4 @@ type RevisionService interface {
 	List(entityType string, entityID string, limit int64) (domain.Revisions, error)
 	// Get returns a single revision by id (empty if not found).
 	Get(id string) domain.Revision
-	// Current returns the revision the pointer is on for the entity.
-	Current(entityType string, entityID string) domain.Revision
 }

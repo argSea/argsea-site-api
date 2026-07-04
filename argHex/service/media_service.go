@@ -10,7 +10,7 @@ type mediaService struct {
 	mediaRepo out_port.MediaRepo
 }
 
-//NewMediaService creates a new media service
+// NewMediaService creates a new media service
 func NewMediaService(mediaRepo out_port.MediaRepo) in_port.MediaService {
 	return mediaService{
 		mediaRepo: mediaRepo,

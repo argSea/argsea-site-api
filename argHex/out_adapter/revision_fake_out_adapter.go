@@ -60,9 +60,9 @@ func (r revisionFakeOutAdapter) List(entityID string, limit int64) (domain.Revis
 	return out, nil
 }
 
-func (r revisionFakeOutAdapter) ClearCurrent(entityID string) error {
+func (r revisionFakeOutAdapter) ClearCurrentExcept(entityID string, revisionID string) error {
 	for i := range *r.revisions {
-		if (*r.revisions)[i].EntityId == entityID {
+		if (*r.revisions)[i].EntityId == entityID && (*r.revisions)[i].Id != revisionID {
 			(*r.revisions)[i].IsCurrent = false
 		}
 	}

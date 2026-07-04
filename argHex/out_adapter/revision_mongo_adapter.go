@@ -8,6 +8,7 @@ import (
 	"github.com/argSea/argsea-site-api/argHex/out_port"
 	"github.com/argSea/argsea-site-api/argHex/stores"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type revisionMongoAdapter struct {
@@ -47,6 +48,14 @@ func (r revisionMongoAdapter) List(entityID string, limit int64) (domain.Revisio
 	return revisions, err
 }
 
-func (r revisionMongoAdapter) ClearCurrent(entityID string) error {
-	return r.store.UpdateManyByField("entityId", entityID, bson.M{"isCurrent": false})
+func (r revisionMongoAdapter) ClearCurrentExcept(entityID string, revisionID string) error {
+	id, idErr := primitive.ObjectIDFromHex(revisionID)
+
+	if nil != idErr {
+		return idErr
+	}
+
+	filter := bson.M{"entityId": entityID, "_id": bson.M{"$ne": id}}
+
+	return r.store.UpdateMany(filter, bson.M{"isCurrent": false})
 }

@@ -16,14 +16,11 @@ func NewRevisionService(repo out_port.RevisionRepo) in_port.RevisionService {
 	}
 }
 
-// Snapshot appends a new current revision. It first clears the current flag on
-// the entity's existing revisions so exactly one revision is ever current — the
-// pointer moves to the freshly written one.
+// Snapshot appends a new current revision, then clears the current flag on the
+// entity's other revisions. Insert-first ordering means a failure between the
+// two steps leaves two current revisions — which self-heals on the next
+// snapshot — never zero.
 func (r revisionService) Snapshot(entityType string, entityID string, snapshot string, summary string) (string, error) {
-	if err := r.repo.ClearCurrent(entityID); nil != err {
-		return "", err
-	}
-
 	rev := domain.Revision{
 		EntityType: entityType,
 		EntityId:   entityID,
@@ -33,7 +30,17 @@ func (r revisionService) Snapshot(entityType string, entityID string, snapshot s
 		CreatedAt:  nowStamp(),
 	}
 
-	return r.repo.Add(rev)
+	id, err := r.repo.Add(rev)
+
+	if nil != err {
+		return "", err
+	}
+
+	if err := r.repo.ClearCurrentExcept(entityID, id); nil != err {
+		return "", err
+	}
+
+	return id, nil
 }
 
 func (r revisionService) List(entityType string, entityID string, limit int64) (domain.Revisions, error) {
@@ -42,16 +49,4 @@ func (r revisionService) List(entityType string, entityID string, limit int64) (
 
 func (r revisionService) Get(id string) domain.Revision {
 	return r.repo.Get(id)
-}
-
-// Current returns the revision the pointer is on. Snapshot always writes the
-// current revision last, so the newest revision is the current one.
-func (r revisionService) Current(entityType string, entityID string) domain.Revision {
-	revs, err := r.repo.List(entityID, 1)
-
-	if nil != err || 0 == len(revs) {
-		return domain.Revision{}
-	}
-
-	return revs[0]
 }
