@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/argSea/argsea-site-api/argHex/data_objects"
+	"github.com/argSea/argsea-site-api/argHex/in_port"
 )
 
 // Shared plumbing for the content in-adapters (projects, notes, hobbies, copy,
@@ -34,6 +35,25 @@ func writeError(w http.ResponseWriter, code int64, message interface{}) {
 func requireAuth(auth *WebAuth, w http.ResponseWriter, r *http.Request) bool {
 	if !auth.Authorized(r) {
 		writeError(w, 401, "Unauthorized")
+		return false
+	}
+
+	return true
+}
+
+// requireAdmin gates an admin-only endpoint: 401 when the request carries no
+// valid token at all, 403 when the token is valid but not admin-role. Returns
+// false when the caller may not proceed, mirroring requireAuth.
+func requireAdmin(auth *WebAuth, w http.ResponseWriter, r *http.Request) bool {
+	role, authorized := auth.Role(r)
+
+	if !authorized {
+		writeError(w, 401, "Unauthorized")
+		return false
+	}
+
+	if in_port.PERM_ADMIN != role {
+		writeError(w, 403, "Forbidden")
 		return false
 	}
 

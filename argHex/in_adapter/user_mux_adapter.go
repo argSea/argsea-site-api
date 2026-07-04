@@ -149,6 +149,10 @@ func (u userMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
 	var user domain.User
 	json.NewDecoder(r.Body).Decode(&user)
 
+	// role never comes from the request body — admin is granted only by a
+	// direct DB update
+	user.Role = ""
+
 	new_id, err := u.user.Create(user)
 
 	// get user by new_id
@@ -265,6 +269,10 @@ func (u userMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 
 	id := mux.Vars(r)["id"]
 	user.Id = id
+
+	// strip any role in the body: with role empty (bson omitempty) the $set
+	// update leaves the stored role untouched, so a PUT cannot self-grant admin
+	user.Role = ""
 
 	if !requireAuth(u.auth, w, r) {
 		return
