@@ -17,27 +17,20 @@ import (
 type authMuxAdapter struct {
 	authService  in_port.AuthService
 	loginService in_port.UserLoginService
-	secret       []byte
+	webAuth      *WebAuth
 	store        *sessions.CookieStore
 }
 
-func NewAuthMuxAdapter(a in_port.AuthService, l in_port.UserLoginService, s []byte, r *mux.Router) {
+// NewAuthMuxAdapter wires the login/logout/validate routes. It issues sessions
+// through the shared WebAuth cookie store, so the tokens it writes are read
+// back by the same mechanism every other adapter authenticates with.
+func NewAuthMuxAdapter(a in_port.AuthService, l in_port.UserLoginService, webAuth *WebAuth, r *mux.Router) {
 	adapter := authMuxAdapter{
 		authService:  a,
 		loginService: l,
-		secret:       s,
+		webAuth:      webAuth,
+		store:        webAuth.Store(),
 	}
-
-	sess_options := &sessions.Options{
-		Domain:   "argsea.com",
-		Path:     "/",
-		MaxAge:   24 * 60 * 60,
-		HttpOnly: true,
-		Secure:   true,
-	}
-
-	adapter.store = sessions.NewCookieStore(s)
-	adapter.store.Options = sess_options
 
 	//user auth service
 	r.HandleFunc("/login/", adapter.Login).Methods("POST")
@@ -188,24 +181,11 @@ func (a authMuxAdapter) Validate(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// check if auth-token cookie exists
-	session, session_err := a.store.Get(r, "auth-token")
+	// pull the token off the request — session cookie or bearer header, the
+	// same extraction every other adapter uses
+	token := a.webAuth.Token(r)
 
-	if nil != session_err {
-		log.Println("Error getting session: ", session_err)
-		response := data_objects.ErroredResponseObject{
-			Status:  "error",
-			Code:    500,
-			Message: session_err.Error(),
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	log.Println("Session data: ", session)
-
-	if session.IsNew {
+	if "" == token {
 		response := data_objects.ErroredResponseObject{
 			Status:  "error",
 			Code:    401,
@@ -215,8 +195,6 @@ func (a authMuxAdapter) Validate(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-
-	token := session.Values["token"].(string)
 
 	// check auth
 	v_response, v_err := a.authService.Validate(token)

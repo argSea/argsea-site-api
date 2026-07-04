@@ -12,11 +12,13 @@ import (
 
 type suggestionMuxAdapter struct {
 	suggestion in_port.SuggestionService
+	auth       *WebAuth
 }
 
-func NewSuggestionMuxAdapter(suggestion in_port.SuggestionService, router *mux.Router) *suggestionMuxAdapter {
+func NewSuggestionMuxAdapter(suggestion in_port.SuggestionService, auth *WebAuth, router *mux.Router) *suggestionMuxAdapter {
 	a := suggestionMuxAdapter{
 		suggestion: suggestion,
+		auth:       auth,
 	}
 
 	router.HandleFunc("", a.List).Methods("GET")
@@ -42,7 +44,7 @@ func (a suggestionMuxAdapter) List(w http.ResponseWriter, r *http.Request) {
 
 // Add appends a chip. The body carries just the value: {"value": "kayaking?"}.
 func (a suggestionMuxAdapter) Add(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(w, r) {
+	if !requireAuth(a.auth, w, r) {
 		return
 	}
 
@@ -66,7 +68,7 @@ func (a suggestionMuxAdapter) Add(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a suggestionMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(w, r) {
+	if !requireAuth(a.auth, w, r) {
 		return
 	}
 

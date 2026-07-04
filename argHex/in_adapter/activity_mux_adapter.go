@@ -9,11 +9,13 @@ import (
 
 type activityMuxAdapter struct {
 	activity in_port.ActivityService
+	auth     *WebAuth
 }
 
-func NewActivityMuxAdapter(activity in_port.ActivityService, router *mux.Router) *activityMuxAdapter {
+func NewActivityMuxAdapter(activity in_port.ActivityService, auth *WebAuth, router *mux.Router) *activityMuxAdapter {
 	a := activityMuxAdapter{
 		activity: activity,
+		auth:     auth,
 	}
 
 	// the ship's log — admin dashboard data, so it is gated behind auth
@@ -26,7 +28,7 @@ func NewActivityMuxAdapter(activity in_port.ActivityService, router *mux.Router)
 // Recent returns the newest log entries first. Defaults to the last 6 (what the
 // dashboard shows).
 func (a activityMuxAdapter) Recent(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(w, r) {
+	if !requireAuth(a.auth, w, r) {
 		return
 	}
 

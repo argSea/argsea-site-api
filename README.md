@@ -27,10 +27,11 @@ curl 'http://127.0.0.1:8181/1/project?published=true'
 # public read: the site-copy singleton ("signal flags")
 curl 'http://127.0.0.1:8181/1/copy'
 
-# authed write: create a project (requires a valid session cookie;
-# without one the API answers 401)
+# authed write: create a project. Writes accept the auth-token session cookie
+# or an Authorization: Bearer JWT — use Bearer locally (the cookie is scoped to
+# argsea.com). Without either the API answers 401.
 curl -X POST 'http://127.0.0.1:8181/1/project' \
   -H 'Content-Type: application/json' \
-  -b 'auth-token=<session cookie>' \
+  -H 'Authorization: Bearer <jwt>' \
   -d '{"title":"Postcard","category":"backend","shortDesc":"hello","status":"draft"}'
 ```

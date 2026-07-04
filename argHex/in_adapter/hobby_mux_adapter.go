@@ -13,11 +13,13 @@ import (
 
 type hobbyMuxAdapter struct {
 	hobby in_port.HobbyCRUDService
+	auth  *WebAuth
 }
 
-func NewHobbyMuxAdapter(hobby in_port.HobbyCRUDService, router *mux.Router) *hobbyMuxAdapter {
+func NewHobbyMuxAdapter(hobby in_port.HobbyCRUDService, auth *WebAuth, router *mux.Router) *hobbyMuxAdapter {
 	a := hobbyMuxAdapter{
 		hobby: hobby,
+		auth:  auth,
 	}
 
 	router.HandleFunc("", a.List).Methods("GET")
@@ -51,7 +53,7 @@ func (a hobbyMuxAdapter) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a hobbyMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(w, r) {
+	if !requireAuth(a.auth, w, r) {
 		return
 	}
 
@@ -73,7 +75,7 @@ func (a hobbyMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a hobbyMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(w, r) {
+	if !requireAuth(a.auth, w, r) {
 		return
 	}
 
@@ -97,7 +99,7 @@ func (a hobbyMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a hobbyMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(w, r) {
+	if !requireAuth(a.auth, w, r) {
 		return
 	}
 

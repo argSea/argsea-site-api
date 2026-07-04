@@ -145,6 +145,11 @@ func main() {
 	activityRouter := router.PathPrefix("/1/activity").Subrouter()
 	authRouter := router.PathPrefix("/1/auth").Subrouter()
 
+	// in-process auth: one JWT validator + one cookie/bearer extractor shared
+	// by every adapter (no HTTP round-trips to a validate endpoint)
+	userAuthService := service.NewJWTAuthService(jSecret)
+	webAuth := in_adapter.NewWebAuth(userAuthService, jSecret)
+
 	// shared history + ship's log — projects and notes snapshot into revisions,
 	// every content mutation records an activity entry
 	log.Println("Initializing revisions and activity log")
@@ -152,50 +157,49 @@ func main() {
 	revisionService := service.NewRevisionService(out_adapter.NewRevisionMongoAdapter(revisionMordor))
 	activityMordor := stores.NewMordor(mongo_db.DB.Collection(activityTable), context.Background())
 	activityService := service.NewActivityService(out_adapter.NewActivityMongoAdapter(activityMordor))
-	in_adapter.NewActivityMuxAdapter(activityService, activityRouter)
+	in_adapter.NewActivityMuxAdapter(activityService, webAuth, activityRouter)
 
 	// projects (postcards)
 	log.Println("Initializing project")
 	projectMordor := stores.NewMordor(mongo_db.DB.Collection(projectTable), context.Background())
 	projectService := service.NewProjectCRUDService(out_adapter.NewProjectMongoAdapter(projectMordor), revisionService, activityService)
-	in_adapter.NewProjectMuxAdapter(projectService, projRouter)
+	in_adapter.NewProjectMuxAdapter(projectService, webAuth, projRouter)
 
 	// notes (writing desk)
 	log.Println("Initializing note")
 	noteMordor := stores.NewMordor(mongo_db.DB.Collection(noteTable), context.Background())
 	noteService := service.NewNoteCRUDService(out_adapter.NewNoteMongoAdapter(noteMordor), revisionService, activityService)
-	in_adapter.NewNoteMuxAdapter(noteService, noteRouter)
+	in_adapter.NewNoteMuxAdapter(noteService, webAuth, noteRouter)
 
 	// hobbies (graveyard)
 	log.Println("Initializing hobby")
 	hobbyMordor := stores.NewMordor(mongo_db.DB.Collection(hobbyTable), context.Background())
 	hobbyService := service.NewHobbyCRUDService(out_adapter.NewHobbyMongoAdapter(hobbyMordor), activityService)
-	in_adapter.NewHobbyMuxAdapter(hobbyService, hobbyRouter)
+	in_adapter.NewHobbyMuxAdapter(hobbyService, webAuth, hobbyRouter)
 
 	// site copy (signal flags) — singleton
 	log.Println("Initializing site copy")
 	siteCopyMordor := stores.NewMordor(mongo_db.DB.Collection(siteCopyTable), context.Background())
 	siteCopyService := service.NewSiteCopyService(out_adapter.NewSiteCopyMongoAdapter(siteCopyMordor), activityService)
-	in_adapter.NewSiteCopyMuxAdapter(siteCopyService, copyRouter)
+	in_adapter.NewSiteCopyMuxAdapter(siteCopyService, webAuth, copyRouter)
 
 	// suggestion pool (the "next: ???" chips)
 	log.Println("Initializing suggestions")
 	suggestionMordor := stores.NewMordor(mongo_db.DB.Collection(suggestionTable), context.Background())
 	suggestionService := service.NewSuggestionService(out_adapter.NewSuggestionMongoAdapter(suggestionMordor), activityService)
-	in_adapter.NewSuggestionMuxAdapter(suggestionService, suggestionRouter)
+	in_adapter.NewSuggestionMuxAdapter(suggestionService, webAuth, suggestionRouter)
 
 	// users — kept (auth depends on it)
 	log.Println("Initializing user")
 	userMordor := stores.NewMordor(mongo_db.DB.Collection(userTable), context.Background())
 	userMongoAdapter := out_adapter.NewUserMongoAdapter(userMordor)
 	userService := service.NewUserCRUDService(userMongoAdapter)
-	in_adapter.NewUserMuxAdapter(userService, mediaService, userRouter)
+	in_adapter.NewUserMuxAdapter(userService, mediaService, webAuth, userRouter)
 
-	// auth — kept
+	// auth — kept; sessions are issued through the same shared WebAuth store
 	log.Println("Initializing auth")
-	userAuthService := service.NewJWTAuthService(jSecret)
 	userLoginService := service.NewUserLoginService(userMongoAdapter)
-	in_adapter.NewAuthMuxAdapter(userAuthService, userLoginService, jSecret, authRouter)
+	in_adapter.NewAuthMuxAdapter(userAuthService, userLoginService, webAuth, authRouter)
 
 	// echo back origins
 	origins := handlers.AllowedOrigins([]string{"https://argsea.com", "https://www.argsea.com", "https://argsea.dev", "https://www.argsea.dev", "http://127.0.0.1:5173"})

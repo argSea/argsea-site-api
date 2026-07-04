@@ -16,16 +16,18 @@ import (
 	"github.com/gorilla/mux"
 )
 
-//FROM USER TO APP
+// FROM USER TO APP
 type userMuxAdapter struct {
 	user  in_port.UserCRUDService
 	media in_port.MediaService
+	auth  *WebAuth
 }
 
-func NewUserMuxAdapter(u in_port.UserCRUDService, m in_port.MediaService, router *mux.Router) {
+func NewUserMuxAdapter(u in_port.UserCRUDService, m in_port.MediaService, auth *WebAuth, router *mux.Router) {
 	adapter := &userMuxAdapter{
 		user:  u,
 		media: m,
+		auth:  auth,
 	}
 
 	//user service
@@ -140,30 +142,7 @@ func (u userMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// check auth
-	authorized, auth_err := u.checkAuth(r)
-
-	if nil != auth_err {
-		response := data_objects.ErroredResponseObject{
-			Status:  "error",
-			Code:    500,
-			Message: auth_err.Error(),
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
-
-		return
-	}
-
-	if !authorized {
-		response := data_objects.ErroredResponseObject{
-			Status:  "error",
-			Code:    401,
-			Message: "Unauthorized",
-		}
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
-
+	if !requireAuth(u.auth, w, r) {
 		return
 	}
 
@@ -287,30 +266,7 @@ func (u userMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	user.Id = id
 
-	// check auth
-	authorized, auth_err := u.checkAuth(r)
-
-	if nil != auth_err {
-		response := data_objects.ErroredResponseObject{
-			Status:  "error",
-			Code:    500,
-			Message: auth_err.Error(),
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
-
-		return
-	}
-
-	if !authorized {
-		response := data_objects.ErroredResponseObject{
-			Status:  "error",
-			Code:    401,
-			Message: "Unauthorized",
-		}
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
-
+	if !requireAuth(u.auth, w, r) {
 		return
 	}
 
@@ -514,30 +470,7 @@ func (u userMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	user.Id = id
 
-	// check auth
-	authorized, auth_err := u.checkAuth(r)
-
-	if nil != auth_err {
-		response := data_objects.ErroredResponseObject{
-			Status:  "error",
-			Code:    500,
-			Message: auth_err.Error(),
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
-
-		return
-	}
-
-	if !authorized {
-		response := data_objects.ErroredResponseObject{
-			Status:  "error",
-			Code:    401,
-			Message: "Unauthorized",
-		}
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
-
+	if !requireAuth(u.auth, w, r) {
 		return
 	}
 
@@ -561,50 +494,4 @@ func (u userMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(resp)
-}
-
-func (u userMuxAdapter) checkAuth(r *http.Request) (bool, error) {
-	// check auth
-	validate_endpoint := "https://api.argsea.com/1/auth/validate/"
-
-	// pass along all cookies
-	cookies := r.Cookies()
-	cookie_string := ""
-
-	for i := 0; i < len(cookies); i++ {
-		cookie_string += cookies[i].Name + "=" + cookies[i].Value + ";"
-	}
-
-	log.Println(cookie_string)
-
-	req, req_err := http.NewRequest("GET", validate_endpoint, nil)
-
-	if nil != req_err {
-		return false, req_err
-	}
-
-	req.Header.Add("Cookie", cookie_string)
-
-	val_res, val_err := http.DefaultClient.Do(req)
-
-	if nil != val_err {
-		return false, val_err
-	}
-
-	defer val_res.Body.Close()
-
-	val_body, val_body_err := ioutil.ReadAll(val_res.Body)
-
-	if nil != val_body_err {
-		return false, val_body_err
-	}
-
-	var val_data map[string]interface{}
-	json.Unmarshal(val_body, &val_data)
-
-	if "ok" != val_data["status"] {
-		return false, nil
-	}
-
-	return true, nil
 }

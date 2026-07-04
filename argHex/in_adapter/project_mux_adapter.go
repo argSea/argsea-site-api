@@ -13,11 +13,13 @@ import (
 
 type projectMuxAdapter struct {
 	project in_port.ProjectCRUDService
+	auth    *WebAuth
 }
 
-func NewProjectMuxAdapter(project in_port.ProjectCRUDService, router *mux.Router) *projectMuxAdapter {
+func NewProjectMuxAdapter(project in_port.ProjectCRUDService, auth *WebAuth, router *mux.Router) *projectMuxAdapter {
 	a := projectMuxAdapter{
 		project: project,
+		auth:    auth,
 	}
 
 	// public reads (Astro build consumes ?published=true)
@@ -57,7 +59,7 @@ func (a projectMuxAdapter) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a projectMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(w, r) {
+	if !requireAuth(a.auth, w, r) {
 		return
 	}
 
@@ -79,7 +81,7 @@ func (a projectMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a projectMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(w, r) {
+	if !requireAuth(a.auth, w, r) {
 		return
 	}
 
@@ -103,7 +105,7 @@ func (a projectMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a projectMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(w, r) {
+	if !requireAuth(a.auth, w, r) {
 		return
 	}
 
@@ -116,7 +118,7 @@ func (a projectMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a projectMuxAdapter) Publish(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(w, r) {
+	if !requireAuth(a.auth, w, r) {
 		return
 	}
 
@@ -131,7 +133,7 @@ func (a projectMuxAdapter) Publish(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a projectMuxAdapter) Unpublish(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(w, r) {
+	if !requireAuth(a.auth, w, r) {
 		return
 	}
 
@@ -148,7 +150,7 @@ func (a projectMuxAdapter) Unpublish(w http.ResponseWriter, r *http.Request) {
 // Revisions lists the last few printings for the rollback UI. Admin-only — the
 // history is not public. Defaults to the last 5.
 func (a projectMuxAdapter) Revisions(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(w, r) {
+	if !requireAuth(a.auth, w, r) {
 		return
 	}
 
@@ -163,7 +165,7 @@ func (a projectMuxAdapter) Revisions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a projectMuxAdapter) Restore(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(w, r) {
+	if !requireAuth(a.auth, w, r) {
 		return
 	}
 

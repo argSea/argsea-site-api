@@ -11,11 +11,13 @@ import (
 
 type siteCopyMuxAdapter struct {
 	copy in_port.SiteCopyService
+	auth *WebAuth
 }
 
-func NewSiteCopyMuxAdapter(copy in_port.SiteCopyService, router *mux.Router) *siteCopyMuxAdapter {
+func NewSiteCopyMuxAdapter(copy in_port.SiteCopyService, auth *WebAuth, router *mux.Router) *siteCopyMuxAdapter {
 	a := siteCopyMuxAdapter{
 		copy: copy,
+		auth: auth,
 	}
 
 	// singleton: GET reads it (public), PUT upserts it (authored)
@@ -32,7 +34,7 @@ func (a siteCopyMuxAdapter) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a siteCopyMuxAdapter) Save(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(w, r) {
+	if !requireAuth(a.auth, w, r) {
 		return
 	}
 
