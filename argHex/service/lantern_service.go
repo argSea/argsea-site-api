@@ -137,14 +137,16 @@ func (l *lanternService) run() {
 		log.Printf("lantern could not persist lastHoistedAt: %v\n", saveErr)
 	}
 
+	// the ship's-log entry lands before the terminal status is visible, so
+	// whoever sees "succeeded" also sees the log line
+	l.record("lantern hoisted")
+
 	l.mu.Lock()
 	l.status.State = domain.LanternSucceeded
 	l.status.FinishedAt = stamp
 	l.status.LastHoistedAt = stamp
 	l.status.Output = tail
 	l.mu.Unlock()
-
-	l.record("lantern hoisted")
 }
 
 // transition moves the running hoist to a new non-terminal state.
@@ -155,15 +157,16 @@ func (l *lanternService) transition(state string, output string) {
 	l.mu.Unlock()
 }
 
-// fail terminates the hoist as failed, keeping the output tail plus the reason.
+// fail terminates the hoist as failed, keeping the output tail plus the
+// reason. The log entry is recorded before the failed state becomes visible.
 func (l *lanternService) fail(output string, message string) {
+	l.record(message)
+
 	l.mu.Lock()
 	l.status.State = domain.LanternFailed
 	l.status.FinishedAt = nowStamp()
 	l.status.Output = output
 	l.mu.Unlock()
-
-	l.record(message)
 }
 
 // record writes a ship's-log entry; a logging failure never blocks the hoist.
