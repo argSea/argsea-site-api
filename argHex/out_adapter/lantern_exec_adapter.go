@@ -5,10 +5,16 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"syscall"
 	"time"
 
 	"github.com/argSea/argsea-site-api/argHex/out_port"
 )
+
+// lanternWaitDelay is the backstop after a timeout kill: if any descendant
+// survives and holds the output pipe open, stop waiting on it after this long
+// and return anyway instead of hanging the hoist forever.
+const lanternWaitDelay = 5 * time.Second
 
 type lanternExecAdapter struct {
 }
@@ -19,10 +25,11 @@ func NewLanternExecAdapter() out_port.BuildRunner {
 	return lanternExecAdapter{}
 }
 
-// Run executes argv in dir with env merged over the process environment and
-// returns the combined stdout+stderr. The output never includes the
-// environment itself, so nothing secret can leak into the status payload.
-func (l lanternExecAdapter) Run(dir string, argv []string, env map[string]string, timeout time.Duration) (string, error) {
+// Run executes argv in dir with env (KEY=VALUE entries) merged over the
+// process environment and returns the combined stdout+stderr. The output never
+// includes the environment itself, so nothing secret can leak into the status
+// payload.
+func (l lanternExecAdapter) Run(dir string, argv []string, env []string, timeout time.Duration) (string, error) {
 	if 0 == len(argv) {
 		return "", errors.New("build command is empty")
 	}
@@ -34,13 +41,17 @@ func (l lanternExecAdapter) Run(dir string, argv []string, env map[string]string
 	cmd.Dir = dir
 
 	// configured entries win over inherited ones because they come last
-	merged := os.Environ()
+	cmd.Env = append(os.Environ(), env...)
 
-	for key, value := range env {
-		merged = append(merged, key+"="+value)
+	// a build spawns descendants (npm → sh → node) that inherit the output
+	// pipe. Run the whole tree in its own process group and kill the group on
+	// timeout — killing only argv[0] would leave a grandchild holding the pipe
+	// and CombinedOutput blocked until it exits
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error {
+		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}
-
-	cmd.Env = merged
+	cmd.WaitDelay = lanternWaitDelay
 
 	output, err := cmd.CombinedOutput()
 

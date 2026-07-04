@@ -18,11 +18,12 @@ import (
 )
 
 // stubUserRepo is a single-user UserRepo whose stored document (including its
-// role) the test controls, and which captures what Add receives so the signup
-// role-stripping can be asserted.
+// role) the test controls, and which captures what Add and Set receive so the
+// role-stripping on signup and update can be asserted.
 type stubUserRepo struct {
-	stored domain.User
-	added  *domain.User
+	stored  domain.User
+	added   *domain.User
+	updated *domain.User
 }
 
 func (s *stubUserRepo) GetAll(limit int64, offset int64, sort interface{}) domain.Users {
@@ -38,6 +39,10 @@ func (s *stubUserRepo) GetByUserName(username string) domain.User {
 }
 
 func (s *stubUserRepo) Set(user domain.User) error {
+	if nil != s.updated {
+		*s.updated = user
+	}
+
 	return nil
 }
 

@@ -33,7 +33,7 @@ func TestExecRunnerCapturesOutput(t *testing.T) {
 func TestExecRunnerMergesConfiguredEnv(t *testing.T) {
 	runner := out_adapter.NewLanternExecAdapter()
 
-	env := map[string]string{"LANTERN_TEST_SIGNAL": "harbor"}
+	env := []string{"LANTERN_TEST_SIGNAL=harbor"}
 	output, err := runner.Run(t.TempDir(), []string{"printenv", "LANTERN_TEST_SIGNAL"}, env, time.Second)
 
 	if nil != err || !strings.Contains(output, "harbor") {
@@ -53,6 +53,27 @@ func TestExecRunnerEnforcesTimeout(t *testing.T) {
 
 	if time.Since(start) > 2*time.Second {
 		t.Fatal("the timeout did not actually kill the command")
+	}
+}
+
+// A real build (npm → sh → node) spawns descendants that inherit the output
+// pipe. Killing only argv[0] would leave the backgrounded child holding the
+// pipe and CombinedOutput blocked for its full 30s — the process-group kill
+// must take the whole tree down promptly.
+func TestExecRunnerTimeoutKillsDescendants(t *testing.T) {
+	runner := out_adapter.NewLanternExecAdapter()
+
+	start := time.Now()
+	_, err := runner.Run(t.TempDir(), []string{"sh", "-c", "sleep 30 & sleep 30"}, nil, 200*time.Millisecond)
+
+	if nil == err || !strings.Contains(err.Error(), "timed out") {
+		t.Fatalf("expected a timeout error, got %v", err)
+	}
+
+	// well under the WaitDelay backstop: this proves the group kill worked,
+	// not just that the pipe wait eventually gave up
+	if elapsed := time.Since(start); elapsed > 3*time.Second {
+		t.Fatalf("runner blocked on an orphaned descendant for %v after the timeout", elapsed)
 	}
 }
 

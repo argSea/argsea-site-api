@@ -49,7 +49,10 @@ routes are not mounted at all. See `config.example.json` for the shape:
 `site_dir` (build working directory), `build_cmd` (an argv array, never a
 shell string), `dist_dir` (relative to `site_dir`), `releases_dir`,
 `live_link`, `keep` (generations to retain, default 2), `timeout_seconds`
-(default 600), and `env` (merged over the process env for the build).
+(default 600), and `env` — an array of `KEY=VALUE` strings merged over the
+process env for the build. It is an array, not a JSON object, because the
+config loader lowercases object keys (`ARGSEA_API_URL` would silently become
+`argsea_api_url`).
 
 Both routes require a JWT whose `role` claim is `admin` — 401 without a valid
 token, 403 with a plain-user one. Login mints the role stored on the user

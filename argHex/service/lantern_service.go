@@ -20,12 +20,12 @@ const lanternOutputTailLines = 100
 // where the site checkout lives, how to build it, and how deep the release
 // history is kept.
 type LanternConfig struct {
-	SiteDir  string            // the Astro checkout — the build's working directory
-	BuildCmd []string          // argv array, never a shell string
-	DistDir  string            // build output, relative to SiteDir
-	Keep     int               // generations to retain after a hoist
-	Timeout  time.Duration     // hard cap on the build command
-	Env      map[string]string // merged over the process env for the build
+	SiteDir  string        // the Astro checkout — the build's working directory
+	BuildCmd []string      // argv array, never a shell string
+	DistDir  string        // build output, relative to SiteDir
+	Keep     int           // generations to retain after a hoist
+	Timeout  time.Duration // hard cap on the build command
+	Env      []string      // KEY=VALUE entries merged over the process env for the build
 }
 
 type lanternService struct {
@@ -145,27 +145,30 @@ func (l *lanternService) run() {
 	l.status.State = domain.LanternSucceeded
 	l.status.FinishedAt = stamp
 	l.status.LastHoistedAt = stamp
-	l.status.Output = tail
+	l.status.Output = tailLines(tail, lanternOutputTailLines)
 	l.mu.Unlock()
 }
 
-// transition moves the running hoist to a new non-terminal state.
+// transition moves the running hoist to a new non-terminal state. The output
+// bound is enforced here, at the point of publication, whatever the caller
+// appended.
 func (l *lanternService) transition(state string, output string) {
 	l.mu.Lock()
 	l.status.State = state
-	l.status.Output = output
+	l.status.Output = tailLines(output, lanternOutputTailLines)
 	l.mu.Unlock()
 }
 
 // fail terminates the hoist as failed, keeping the output tail plus the
-// reason. The log entry is recorded before the failed state becomes visible.
+// reason (re-bounded at publication so the appended reason can't overflow the
+// tail). The log entry is recorded before the failed state becomes visible.
 func (l *lanternService) fail(output string, message string) {
 	l.record(message)
 
 	l.mu.Lock()
 	l.status.State = domain.LanternFailed
 	l.status.FinishedAt = nowStamp()
-	l.status.Output = output
+	l.status.Output = tailLines(output, lanternOutputTailLines)
 	l.mu.Unlock()
 }
 

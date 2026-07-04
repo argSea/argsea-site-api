@@ -225,7 +225,10 @@ func main() {
 			DistDir:  viper.GetString("lantern.dist_dir"),
 			Keep:     lanternKeep,
 			Timeout:  time.Duration(lanternTimeout) * time.Second,
-			Env:      viper.GetStringMapString("lantern.env"),
+			// env is an array of KEY=VALUE strings, NOT a JSON object: viper
+			// lowercases nested map keys on load, which would silently turn
+			// ARGSEA_API_URL into argsea_api_url. Slice values pass through intact.
+			Env: viper.GetStringSlice("lantern.env"),
 		}
 
 		lanternMordor := stores.NewMordor(mongo_db.DB.Collection(lanternTable), context.Background())

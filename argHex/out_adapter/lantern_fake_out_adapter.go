@@ -13,7 +13,7 @@ type LanternFakeRunner struct {
 	Gate   chan struct{} // when non-nil, Run blocks until the channel closes
 }
 
-func (f *LanternFakeRunner) Run(dir string, argv []string, env map[string]string, timeout time.Duration) (string, error) {
+func (f *LanternFakeRunner) Run(dir string, argv []string, env []string, timeout time.Duration) (string, error) {
 	if nil != f.Gate {
 		<-f.Gate
 	}

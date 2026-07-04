@@ -285,6 +285,39 @@ func TestStatusOutputIsBoundedTail(t *testing.T) {
 	}
 }
 
+// The failure path appends a reason to the tail — the bound must hold at
+// publication, not just after a successful build.
+func TestFailureOutputIsBoundedTail(t *testing.T) {
+	long := strings.Repeat("line\n", 150)
+	runner := &out_adapter.LanternFakeRunner{Output: long, Err: errors.New("boom")}
+
+	lantern := service.NewLanternService(
+		service.LanternConfig{BuildCmd: []string{"stub"}, Keep: 2, Timeout: time.Second},
+		runner,
+		&out_adapter.LanternFakeReleaseStore{},
+		&out_adapter.LanternFakeStateRepo{},
+		service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
+	)
+
+	if _, err := lantern.Hoist(); nil != err {
+		t.Fatalf("hoist failed to start: %v", err)
+	}
+
+	final := waitTerminal(t, lantern)
+
+	if domain.LanternFailed != final.State {
+		t.Fatalf("expected failed, got %q", final.State)
+	}
+
+	if lines := strings.Count(final.Output, "\n") + 1; 100 < lines {
+		t.Fatalf("failure output must stay bounded to ~100 lines, got %d", lines)
+	}
+
+	if !strings.Contains(final.Output, "build failed: boom") {
+		t.Fatalf("the failure reason must survive the re-bounding, got tail %q", final.Output[len(final.Output)-80:])
+	}
+}
+
 // the fakes must actually satisfy the ports they stand in for
 var _ out_port.BuildRunner = &out_adapter.LanternFakeRunner{}
 var _ out_port.ReleaseStore = &out_adapter.LanternFakeReleaseStore{}

@@ -24,6 +24,6 @@
     "live_link":       "/srv/argsea/live",
     "keep":            2,
     "timeout_seconds": 600,
-    "env":             {"ARGSEA_API_URL": "http://127.0.0.1:8181"}
+    "env":             ["ARGSEA_API_URL=http://127.0.0.1:8181"]
   }
 }
