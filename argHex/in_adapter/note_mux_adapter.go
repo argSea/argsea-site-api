@@ -11,27 +11,24 @@ import (
 	"github.com/gorilla/mux"
 )
 
-type projectMuxAdapter struct {
-	project in_port.ProjectCRUDService
+type noteMuxAdapter struct {
+	note in_port.NoteCRUDService
 }
 
-func NewProjectMuxAdapter(project in_port.ProjectCRUDService, router *mux.Router) *projectMuxAdapter {
-	a := projectMuxAdapter{
-		project: project,
+func NewNoteMuxAdapter(note in_port.NoteCRUDService, router *mux.Router) *noteMuxAdapter {
+	a := noteMuxAdapter{
+		note: note,
 	}
 
-	// public reads (Astro build consumes ?published=true)
 	router.HandleFunc("", a.List).Methods("GET")
 	router.HandleFunc("/", a.List).Methods("GET")
 	router.HandleFunc("/{id}", a.Get).Methods("GET")
 
-	// authored writes
 	router.HandleFunc("", a.Create).Methods("POST")
 	router.HandleFunc("/", a.Create).Methods("POST")
 	router.HandleFunc("/{id}", a.Update).Methods("PUT")
 	router.HandleFunc("/{id}", a.Delete).Methods("DELETE")
 
-	// lifecycle + history
 	router.HandleFunc("/{id}/publish", a.Publish).Methods("POST")
 	router.HandleFunc("/{id}/unpublish", a.Unpublish).Methods("POST")
 	router.HandleFunc("/{id}/revisions", a.Revisions).Methods("GET")
@@ -40,35 +37,35 @@ func NewProjectMuxAdapter(project in_port.ProjectCRUDService, router *mux.Router
 	return &a
 }
 
-func (a projectMuxAdapter) List(w http.ResponseWriter, r *http.Request) {
-	projects, err := a.project.List(queryFlag(r, "published"), queryLimit(r, 0))
+func (a noteMuxAdapter) List(w http.ResponseWriter, r *http.Request) {
+	notes, err := a.note.List(queryFlag(r, "published"), queryLimit(r, 0))
 
 	if nil != err {
 		writeError(w, 500, err.Error())
 		return
 	}
 
-	w.Header().Add("X-Total-Count", strconv.Itoa(len(projects)))
-	writeJSON(w, http.StatusOK, projects)
+	w.Header().Add("X-Total-Count", strconv.Itoa(len(notes)))
+	writeJSON(w, http.StatusOK, notes)
 }
 
-func (a projectMuxAdapter) Get(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, a.project.Read(mux.Vars(r)["id"]))
+func (a noteMuxAdapter) Get(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, a.note.Read(mux.Vars(r)["id"]))
 }
 
-func (a projectMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
+func (a noteMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(w, r) {
 		return
 	}
 
-	var project domain.Project
+	var note domain.Note
 
-	if err := json.NewDecoder(r.Body).Decode(&project); nil != err {
+	if err := json.NewDecoder(r.Body).Decode(&note); nil != err {
 		writeError(w, 400, err.Error())
 		return
 	}
 
-	saved, err := a.project.Create(project)
+	saved, err := a.note.Create(note)
 
 	if nil != err {
 		writeError(w, 400, err.Error())
@@ -78,21 +75,21 @@ func (a projectMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, saved)
 }
 
-func (a projectMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
+func (a noteMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(w, r) {
 		return
 	}
 
-	var project domain.Project
+	var note domain.Note
 
-	if err := json.NewDecoder(r.Body).Decode(&project); nil != err {
+	if err := json.NewDecoder(r.Body).Decode(&note); nil != err {
 		writeError(w, 400, err.Error())
 		return
 	}
 
-	project.Id = mux.Vars(r)["id"]
+	note.Id = mux.Vars(r)["id"]
 
-	saved, err := a.project.Update(project)
+	saved, err := a.note.Update(note)
 
 	if nil != err {
 		writeError(w, 400, err.Error())
@@ -102,12 +99,12 @@ func (a projectMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, saved)
 }
 
-func (a projectMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
+func (a noteMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(w, r) {
 		return
 	}
 
-	if err := a.project.Delete(mux.Vars(r)["id"]); nil != err {
+	if err := a.note.Delete(mux.Vars(r)["id"]); nil != err {
 		writeError(w, 400, err.Error())
 		return
 	}
@@ -115,12 +112,12 @@ func (a projectMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, data_objects.ItemLessResponseObject{Status: "ok", Code: 200})
 }
 
-func (a projectMuxAdapter) Publish(w http.ResponseWriter, r *http.Request) {
+func (a noteMuxAdapter) Publish(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(w, r) {
 		return
 	}
 
-	saved, err := a.project.Publish(mux.Vars(r)["id"])
+	saved, err := a.note.Publish(mux.Vars(r)["id"])
 
 	if nil != err {
 		writeError(w, 400, err.Error())
@@ -130,12 +127,12 @@ func (a projectMuxAdapter) Publish(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, saved)
 }
 
-func (a projectMuxAdapter) Unpublish(w http.ResponseWriter, r *http.Request) {
+func (a noteMuxAdapter) Unpublish(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(w, r) {
 		return
 	}
 
-	saved, err := a.project.Unpublish(mux.Vars(r)["id"])
+	saved, err := a.note.Unpublish(mux.Vars(r)["id"])
 
 	if nil != err {
 		writeError(w, 400, err.Error())
@@ -145,14 +142,12 @@ func (a projectMuxAdapter) Unpublish(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, saved)
 }
 
-// Revisions lists the last few printings for the rollback UI. Admin-only — the
-// history is not public. Defaults to the last 5.
-func (a projectMuxAdapter) Revisions(w http.ResponseWriter, r *http.Request) {
+func (a noteMuxAdapter) Revisions(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(w, r) {
 		return
 	}
 
-	revisions, err := a.project.Revisions(mux.Vars(r)["id"], queryLimit(r, 5))
+	revisions, err := a.note.Revisions(mux.Vars(r)["id"], queryLimit(r, 5))
 
 	if nil != err {
 		writeError(w, 500, err.Error())
@@ -162,13 +157,13 @@ func (a projectMuxAdapter) Revisions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, revisions)
 }
 
-func (a projectMuxAdapter) Restore(w http.ResponseWriter, r *http.Request) {
+func (a noteMuxAdapter) Restore(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(w, r) {
 		return
 	}
 
 	vars := mux.Vars(r)
-	saved, err := a.project.Restore(vars["id"], vars["revisionID"])
+	saved, err := a.note.Restore(vars["id"], vars["revisionID"])
 
 	if nil != err {
 		writeError(w, 400, err.Error())

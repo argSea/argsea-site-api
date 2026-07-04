@@ -2,38 +2,25 @@ package domain
 
 type Projects []Project
 
-type ProjectSort struct {
-	Id       int `bson:"_id,omitempty"`
-	Priority int `bson:"priority,omitempty"`
-}
-
-//Entity // domain
+// Project is a "postcard from production" — the reshaped portfolio entry that
+// replaces the legacy user-scoped project. Body is long-form rich text stored
+// as a sanitized HTML string (banked decision); Image is a nullable reference
+// to a media item by name.
 type Project struct {
-	//Model
-	Id                string       `json:"id" bson:"_id,omitempty"`
-	UserIDs           []string     `json:"userIDs" bson:"userIDs,omitempty"`
-	Type              string       `json:"projectType" bson:"projectType,omitempty"`
-	Name              string       `json:"name" bson:"name,omitempty"`
-	ShortName         *string      `json:"shortName" bson:"shortName,omitempty"`
-	CreatedDate       *string      `json:"createdDate" bson:"createdDate,omitempty"`
-	UpdatedDate       *string      `json:"updatedDate" bson:"updatedDate,omitempty"`
-	PublishedDate     *string      `json:"publishedDate" bson:"publishedDate,omitempty"`
-	Icon              SimpleImage  `json:"icon" bson:"icon,omitempty"`
-	Images            []Screenshot `json:"images" bson:"images,omitempty"`
-	Slug              string       `json:"slug" bson:"slug,omitempty"`
-	RepoURL           *string      `json:"repoURL" bson:"repoURL,omitempty"`
-	Description       *string      `json:"description" bson:"description,omitempty"`
-	ShortDescription  *string      `json:"shortDescription" bson:"shortDescription,omitempty"`
-	Skills            *[]string    `json:"skills" bson:"skills,omitempty"`
-	Roles             *[]string    `json:"roles" bson:"roles,omitempty"`
-	Priority          int          `json:"priority" bson:"priority,omitempty"`
-	IsActive          bool         `json:"isActive" bson:"isActive"`
-	IsReleased        bool         `json:"isReleased" bson:"isReleased"`
-	IsHidden          bool         `json:"isHidden" bson:"isHidden"`
-	BookID            *string      `json:"bookID" bson:"bookID,omitempty"`
-	RelatedCourse     *Course      `json:"relatedCourse" bson:"relatedCourse,omitempty"`
-	RelatedExperience *Experience  `json:"relatedExperience" bson:"relatedExperience,omitempty"`
-	Links             Links        `json:"links" bson:"links,omitempty"`
-	Snippets          Snippets     `json:"snippets" bson:"snippets,omitempty"`
-	Features          Features     `json:"features" bson:"features,omitempty"`
+	Id           string   `json:"id" bson:"_id,omitempty"`
+	Title        string   `json:"title" bson:"title,omitempty"`
+	Category     string   `json:"category" bson:"category,omitempty"` // backend | games | this website | tinkering
+	Tags         []string `json:"tags" bson:"tags,omitempty"`
+	ShortDesc    string   `json:"shortDesc" bson:"shortDesc,omitempty"` // "front of card"
+	Body         string   `json:"body" bson:"body,omitempty"`           // sanitized HTML long-form
+	Moral        string   `json:"moral" bson:"moral,omitempty"`
+	PostcardTo   string   `json:"postcardTo" bson:"postcardTo,omitempty"`
+	PostcardFrom string   `json:"postcardFrom" bson:"postcardFrom,omitempty"`
+	Postmarked   string   `json:"postmarked" bson:"postmarked,omitempty"` // freeform display string
+	Slug         string   `json:"slug" bson:"slug,omitempty"`
+	Image        *string  `json:"image" bson:"image,omitempty"` // nullable media name
+	Status       string   `json:"status" bson:"status,omitempty"`
+	PublishedAt  string   `json:"publishedAt" bson:"publishedAt"` // no omitempty: unpublish must clear it
+	CreatedAt    string   `json:"createdAt" bson:"createdAt,omitempty"`
+	UpdatedAt    string   `json:"updatedAt" bson:"updatedAt,omitempty"`
 }

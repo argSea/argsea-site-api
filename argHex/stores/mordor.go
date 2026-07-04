@@ -157,6 +157,26 @@ func (m *Mordor) Update(key string, newData interface{}) error {
 	return nil
 }
 
+// UpdateManyByField applies a $set to every document whose field matches value.
+// Used to clear the "current" flag across an entity's revisions before a new
+// current revision is written.
+func (m *Mordor) UpdateManyByField(field string, value interface{}, set interface{}) error {
+	log.Printf("field: %v; value %v; set %+v\n", field, value, set)
+	if nil == m.collection {
+		return errors.New("connection not setup")
+	}
+
+	_, err := m.collection.UpdateMany(
+		m.ctx,
+		bson.M{field: value},
+		bson.D{
+			{Key: "$set", Value: set},
+		},
+	)
+
+	return err
+}
+
 func (m *Mordor) Delete(key string) error {
 	log.Printf("key: %v;\n", key)
 	if nil == m.collection {

@@ -1,0 +1,87 @@
+package service
+
+import (
+	"errors"
+	"log"
+
+	"github.com/argSea/argsea-site-api/argHex/domain"
+	"github.com/argSea/argsea-site-api/argHex/in_port"
+	"github.com/argSea/argsea-site-api/argHex/out_port"
+)
+
+type hobbyCRUDService struct {
+	repo     out_port.HobbyRepo
+	activity in_port.ActivityService
+}
+
+func NewHobbyCRUDService(repo out_port.HobbyRepo, activity in_port.ActivityService) in_port.HobbyCRUDService {
+	return hobbyCRUDService{
+		repo:     repo,
+		activity: activity,
+	}
+}
+
+func (h hobbyCRUDService) List(activeOnly bool) (domain.Hobbies, error) {
+	return h.repo.List(activeOnly)
+}
+
+func (h hobbyCRUDService) Read(id string) domain.Hobby {
+	return h.repo.Get(id)
+}
+
+func (h hobbyCRUDService) Create(hobby domain.Hobby) (domain.Hobby, error) {
+	now := nowStamp()
+
+	hobby.Id = ""
+	hobby.CreatedAt = now
+	hobby.UpdatedAt = now
+
+	id, err := h.repo.Add(hobby)
+
+	if nil != err {
+		return domain.Hobby{}, err
+	}
+
+	saved := h.repo.Get(id)
+	h.record("hobby \""+saved.Name+"\" picked up", saved.Id)
+
+	return saved, nil
+}
+
+func (h hobbyCRUDService) Update(hobby domain.Hobby) (domain.Hobby, error) {
+	existing := h.repo.Get(hobby.Id)
+
+	if "" == existing.Id {
+		return domain.Hobby{}, errors.New("hobby not found")
+	}
+
+	hobby.CreatedAt = existing.CreatedAt
+	hobby.UpdatedAt = nowStamp()
+
+	if err := h.repo.Set(hobby); nil != err {
+		return domain.Hobby{}, err
+	}
+
+	saved := h.repo.Get(hobby.Id)
+	h.record("hobby \""+saved.Name+"\" updated", saved.Id)
+
+	return saved, nil
+}
+
+func (h hobbyCRUDService) Delete(id string) error {
+	existing := h.repo.Get(id)
+
+	if err := h.repo.Remove(id); nil != err {
+		return err
+	}
+
+	h.record("hobby \""+existing.Name+"\" removed", id)
+
+	return nil
+}
+
+func (h hobbyCRUDService) record(message string, id string) {
+	if err := h.activity.Record(message, domain.EntityHobby, id); nil != err {
+		log.Printf("activity record failed for hobby %v: %v\n", id, err)
+	}
+}

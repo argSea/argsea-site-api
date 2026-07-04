@@ -120,62 +120,82 @@ func main() {
 		os.Exit(1)
 	}
 
-	user_table := "users"
+	userTable := "users"
 	projectTable := "projects"
-	resumeTable := "resume"
-	skillTable := "skills"
+	noteTable := "notes"
+	hobbyTable := "hobbies"
+	siteCopyTable := "siteCopy"
+	suggestionTable := "suggestions"
+	activityTable := "activity"
+	revisionTable := "revisions"
 
-	// media for users
+	// media (the darkroom) — kept
 	save_path := viper.GetString("media.images.save_path")
 	web_path := viper.GetString("media.images.web_path")
 	mediaWebstoreAdapter := out_adapter.NewMediaWebstoreAdapter(save_path, web_path)
 	mediaService := service.NewMediaService(mediaWebstoreAdapter)
 
-	//user
+	// routers
 	userRouter := router.PathPrefix("/1/user").Subrouter()
 	projRouter := router.PathPrefix("/1/project").Subrouter()
-	resumeRouter := router.PathPrefix("/1/resume").Subrouter()
+	noteRouter := router.PathPrefix("/1/note").Subrouter()
+	hobbyRouter := router.PathPrefix("/1/hobby").Subrouter()
+	copyRouter := router.PathPrefix("/1/copy").Subrouter()
+	suggestionRouter := router.PathPrefix("/1/suggestion").Subrouter()
+	activityRouter := router.PathPrefix("/1/activity").Subrouter()
 	authRouter := router.PathPrefix("/1/auth").Subrouter()
-	skillRouter := router.PathPrefix("/1/skill").Subrouter()
 
-	//resume
-	log.Println("Initializing resume")
-	// resumeDrivenAdapter := out_adapter.NewResumeFakeOutAdapter()
-	resumeMordor := stores.NewMordor(mongo_db.DB.Collection(resumeTable), context.Background())
-	resumeMongoAdapter := out_adapter.NewResumeMongoAdapter(resumeMordor)
-	resumeService := service.NewResumeCRUDService(resumeMongoAdapter)
-	in_adapter.NewResumeMuxAdapter(resumeService, resumeRouter)
+	// shared history + ship's log — projects and notes snapshot into revisions,
+	// every content mutation records an activity entry
+	log.Println("Initializing revisions and activity log")
+	revisionMordor := stores.NewMordor(mongo_db.DB.Collection(revisionTable), context.Background())
+	revisionService := service.NewRevisionService(out_adapter.NewRevisionMongoAdapter(revisionMordor))
+	activityMordor := stores.NewMordor(mongo_db.DB.Collection(activityTable), context.Background())
+	activityService := service.NewActivityService(out_adapter.NewActivityMongoAdapter(activityMordor))
+	in_adapter.NewActivityMuxAdapter(activityService, activityRouter)
 
-	//project
+	// projects (postcards)
 	log.Println("Initializing project")
-	// projectDrivenAdapter := out_adapter.NewProjectFakeOutAdapter()
 	projectMordor := stores.NewMordor(mongo_db.DB.Collection(projectTable), context.Background())
-	projectMongoAdapter := out_adapter.NewProjectMongoAdapter(projectMordor)
-	projectService := service.NewProjectCRUDService(projectMongoAdapter)
-	in_adapter.NewProjectMuxAdapter(projectService, projRouter, mediaService)
+	projectService := service.NewProjectCRUDService(out_adapter.NewProjectMongoAdapter(projectMordor), revisionService, activityService)
+	in_adapter.NewProjectMuxAdapter(projectService, projRouter)
 
-	//User
+	// notes (writing desk)
+	log.Println("Initializing note")
+	noteMordor := stores.NewMordor(mongo_db.DB.Collection(noteTable), context.Background())
+	noteService := service.NewNoteCRUDService(out_adapter.NewNoteMongoAdapter(noteMordor), revisionService, activityService)
+	in_adapter.NewNoteMuxAdapter(noteService, noteRouter)
+
+	// hobbies (graveyard)
+	log.Println("Initializing hobby")
+	hobbyMordor := stores.NewMordor(mongo_db.DB.Collection(hobbyTable), context.Background())
+	hobbyService := service.NewHobbyCRUDService(out_adapter.NewHobbyMongoAdapter(hobbyMordor), activityService)
+	in_adapter.NewHobbyMuxAdapter(hobbyService, hobbyRouter)
+
+	// site copy (signal flags) — singleton
+	log.Println("Initializing site copy")
+	siteCopyMordor := stores.NewMordor(mongo_db.DB.Collection(siteCopyTable), context.Background())
+	siteCopyService := service.NewSiteCopyService(out_adapter.NewSiteCopyMongoAdapter(siteCopyMordor), activityService)
+	in_adapter.NewSiteCopyMuxAdapter(siteCopyService, copyRouter)
+
+	// suggestion pool (the "next: ???" chips)
+	log.Println("Initializing suggestions")
+	suggestionMordor := stores.NewMordor(mongo_db.DB.Collection(suggestionTable), context.Background())
+	suggestionService := service.NewSuggestionService(out_adapter.NewSuggestionMongoAdapter(suggestionMordor), activityService)
+	in_adapter.NewSuggestionMuxAdapter(suggestionService, suggestionRouter)
+
+	// users — kept (auth depends on it)
 	log.Println("Initializing user")
-	// userDrivenAdapter := out_adapter.NewUserFakeOutAdapter()
-	userMordor := stores.NewMordor(mongo_db.DB.Collection(user_table), context.Background())
+	userMordor := stores.NewMordor(mongo_db.DB.Collection(userTable), context.Background())
 	userMongoAdapter := out_adapter.NewUserMongoAdapter(userMordor)
 	userService := service.NewUserCRUDService(userMongoAdapter)
-	userResumeService := service.NewUserResumeService(resumeMongoAdapter)
-	userProjectService := service.NewUserProjectService(projectMongoAdapter)
-	in_adapter.NewUserMuxAdapter(userService, userResumeService, userProjectService, mediaService, userRouter)
+	in_adapter.NewUserMuxAdapter(userService, mediaService, userRouter)
 
-	//Auth
+	// auth — kept
 	log.Println("Initializing auth")
 	userAuthService := service.NewJWTAuthService(jSecret)
 	userLoginService := service.NewUserLoginService(userMongoAdapter)
 	in_adapter.NewAuthMuxAdapter(userAuthService, userLoginService, jSecret, authRouter)
-
-	//Skills
-	log.Println("Initializing skills")
-	skillMordor := stores.NewMordor(mongo_db.DB.Collection(skillTable), context.Background())
-	skillMongoAdapter := out_adapter.NewSkillMongoAdapter(skillMordor)
-	skillService := service.NewSkillCRUDService(skillMongoAdapter)
-	in_adapter.NewSkillMuxAdapter(skillService, skillRouter)
 
 	// echo back origins
 	origins := handlers.AllowedOrigins([]string{"https://argsea.com", "https://www.argsea.com", "https://argsea.dev", "https://www.argsea.dev", "http://127.0.0.1:5173"})

@@ -1,59 +1,64 @@
 package out_adapter
 
 import (
+	"fmt"
+
 	"github.com/argSea/argsea-site-api/argHex/domain"
 	"github.com/argSea/argsea-site-api/argHex/out_port"
 )
 
+// projectFakeOutAdapter is an in-memory ProjectRepo for tests.
 type projectFakeOutAdapter struct {
+	projects *map[string]domain.Project
+	seq      *int
 }
 
 func NewProjectFakeOutAdapter() out_port.ProjectRepo {
-	return projectFakeOutAdapter{}
+	return projectFakeOutAdapter{
+		projects: &map[string]domain.Project{},
+		seq:      new(int),
+	}
 }
 
-func (p projectFakeOutAdapter) GetProjectsByUserID(id string) (domain.Projects, int64, error) {
-	ps := domain.Projects{}
-	pr := domain.Project{}
+func (p projectFakeOutAdapter) List(publishedOnly bool, limit int64) (domain.Projects, error) {
+	var out domain.Projects
 
-	pr.Id = "mooo"
-	pr.UserIDs = append(pr.UserIDs, "mememe")
-	pr.Type = "something"
-	pr.Name = "Super duper project"
-	*pr.ShortName = "SDP"
-	pr.Icon = domain.SimpleImage{Source: "google.com"}
-	pr.Slug = "super-duper-project"
-	*pr.RepoURL = "github.com/argsea/super-duper-project"
-	*pr.Skills = append(*pr.Skills, string("Skills"))
-	*pr.Roles = append(*pr.Roles, "Only me")
-	pr.Priority = 0
-	pr.IsActive = false
-	pr.IsReleased = false
-	pr.RelatedCourse = &domain.Course{}
-	pr.RelatedExperience = &domain.Experience{}
-	pr.Links = append(pr.Links, domain.Link{URL: "github.com"})
-	pr.Snippets = append(pr.Snippets, domain.Snippet{Name: "Test", Code: "<?php echo\"cheese\""})
-	pr.Features = append(pr.Features, domain.Feature{})
-	*pr.BookID = "12345"
-	*pr.Description = "Something to describe"
+	for _, project := range *p.projects {
+		if publishedOnly && domain.StatusPublished != project.Status {
+			continue
+		}
 
-	ps = append(ps, pr)
+		out = append(out, project)
+	}
 
-	return ps, 1, nil
+	if limit > 0 && int64(len(out)) > limit {
+		out = out[:limit]
+	}
+
+	return out, nil
 }
 
 func (p projectFakeOutAdapter) Get(id string) domain.Project {
-	return domain.Project{}
+	return (*p.projects)[id]
 }
 
-func (p projectFakeOutAdapter) Set(proj domain.Project) error {
+func (p projectFakeOutAdapter) Add(project domain.Project) (string, error) {
+	*p.seq++
+	id := fmt.Sprintf("proj-%d", *p.seq)
+	project.Id = id
+	(*p.projects)[id] = project
+
+	return id, nil
+}
+
+func (p projectFakeOutAdapter) Set(project domain.Project) error {
+	(*p.projects)[project.Id] = project
+
 	return nil
 }
 
-func (p projectFakeOutAdapter) Add(proj domain.Project) (string, error) {
-	return "", nil
-}
+func (p projectFakeOutAdapter) Remove(id string) error {
+	delete(*p.projects, id)
 
-func (p projectFakeOutAdapter) Remove(proj domain.Project) error {
 	return nil
 }
