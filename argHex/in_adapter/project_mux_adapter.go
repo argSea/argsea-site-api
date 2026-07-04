@@ -50,6 +50,10 @@ func (a projectMuxAdapter) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if nil == projects {
+		projects = domain.Projects{} // empty list must serialize as [], not null
+	}
+
 	w.Header().Add("X-Total-Count", strconv.Itoa(len(projects)))
 	writeJSON(w, http.StatusOK, projects)
 }
@@ -159,6 +163,10 @@ func (a projectMuxAdapter) Revisions(w http.ResponseWriter, r *http.Request) {
 	if nil != err {
 		writeError(w, 500, err.Error())
 		return
+	}
+
+	if nil == revisions {
+		revisions = domain.Revisions{} // empty list must serialize as [], not null
 	}
 
 	writeJSON(w, http.StatusOK, revisions)

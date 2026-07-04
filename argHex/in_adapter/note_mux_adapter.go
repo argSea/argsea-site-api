@@ -47,6 +47,10 @@ func (a noteMuxAdapter) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if nil == notes {
+		notes = domain.Notes{} // empty list must serialize as [], not null
+	}
+
 	w.Header().Add("X-Total-Count", strconv.Itoa(len(notes)))
 	writeJSON(w, http.StatusOK, notes)
 }
@@ -154,6 +158,10 @@ func (a noteMuxAdapter) Revisions(w http.ResponseWriter, r *http.Request) {
 	if nil != err {
 		writeError(w, 500, err.Error())
 		return
+	}
+
+	if nil == revisions {
+		revisions = domain.Revisions{} // empty list must serialize as [], not null
 	}
 
 	writeJSON(w, http.StatusOK, revisions)

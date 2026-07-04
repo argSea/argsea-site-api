@@ -44,6 +44,10 @@ func (a hobbyMuxAdapter) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if nil == hobbies {
+		hobbies = domain.Hobbies{} // empty list must serialize as [], not null
+	}
+
 	w.Header().Add("X-Total-Count", strconv.Itoa(len(hobbies)))
 	writeJSON(w, http.StatusOK, hobbies)
 }

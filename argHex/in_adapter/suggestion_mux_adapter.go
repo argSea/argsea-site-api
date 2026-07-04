@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/argSea/argsea-site-api/argHex/data_objects"
+	"github.com/argSea/argsea-site-api/argHex/domain"
 	"github.com/argSea/argsea-site-api/argHex/in_port"
 	"github.com/gorilla/mux"
 )
@@ -36,6 +37,10 @@ func (a suggestionMuxAdapter) List(w http.ResponseWriter, r *http.Request) {
 	if nil != err {
 		writeError(w, 500, err.Error())
 		return
+	}
+
+	if nil == suggestions {
+		suggestions = domain.Suggestions{} // empty list must serialize as [], not null
 	}
 
 	w.Header().Add("X-Total-Count", strconv.Itoa(len(suggestions)))

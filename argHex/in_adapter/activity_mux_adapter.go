@@ -3,6 +3,7 @@ package in_adapter
 import (
 	"net/http"
 
+	"github.com/argSea/argsea-site-api/argHex/domain"
 	"github.com/argSea/argsea-site-api/argHex/in_port"
 	"github.com/gorilla/mux"
 )
@@ -37,6 +38,10 @@ func (a activityMuxAdapter) Recent(w http.ResponseWriter, r *http.Request) {
 	if nil != err {
 		writeError(w, 500, err.Error())
 		return
+	}
+
+	if nil == entries {
+		entries = domain.ActivityLogs{} // empty list must serialize as [], not null
 	}
 
 	writeJSON(w, http.StatusOK, entries)
