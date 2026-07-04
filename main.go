@@ -104,9 +104,9 @@ func main() {
 	// JWT auth cannot run without a signing secret — fail fast with a pointer to the fix
 	if 0 == len(jSecret) {
 		missing_secret := "jwt.secret is missing or empty in the config file; add it (see config.example.json)"
+		// log goes to the log file; also surface it on the console. log.Fatal exits.
 		fmt.Fprintf(os.Stderr, "error: %s\n", missing_secret)
 		log.Fatal(missing_secret)
-		os.Exit(1)
 	}
 
 	//setup mongo

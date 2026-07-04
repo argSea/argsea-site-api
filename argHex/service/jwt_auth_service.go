@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"log"
 	"time"
 
@@ -61,10 +62,20 @@ func (j jwtAuthService) Validate(token string) (data_objects.AuthValidationRespo
 		return data_objects.AuthValidationResponseObject{Valid: false}, err
 	}
 
+	// a validly-signed token can still be missing the claims we depend on; guard
+	// the assertions so a malformed token is rejected rather than panicking
+	role, roleOK := claims["role"].(string)
+	userID, idOK := claims["userID"].(string)
+
+	if !roleOK || !idOK {
+		log.Println("Error validating token: missing role or userID claim")
+		return data_objects.AuthValidationResponseObject{Valid: false}, errors.New("token missing required claims")
+	}
+
 	validResponse := data_objects.AuthValidationResponseObject{
 		Valid:  true,
-		Role:   claims["role"].(string),
-		UserID: claims["userID"].(string),
+		Role:   role,
+		UserID: userID,
 	}
 
 	return validResponse, nil
