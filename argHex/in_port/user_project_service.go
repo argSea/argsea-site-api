@@ -1,7 +1,7 @@
 package in_port
 
 import (
-	"github.com/argSea/portfolio_blog_api/argHex/domain"
+	"github.com/argSea/argsea-site-api/argHex/domain"
 )
 
 type UserProjectService interface {

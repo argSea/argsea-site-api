@@ -1,11 +1,12 @@
 package service
 
 import (
+	"errors"
 	"log"
 	"time"
 
-	"github.com/argSea/portfolio_blog_api/argHex/data_objects"
-	"github.com/argSea/portfolio_blog_api/argHex/in_port"
+	"github.com/argSea/argsea-site-api/argHex/data_objects"
+	"github.com/argSea/argsea-site-api/argHex/in_port"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -19,23 +20,31 @@ func NewJWTAuthService(secret []byte) in_port.AuthService {
 	}
 }
 
-// NewAuth
+// Generate mints a signed HS256 token for the user, honoring the requested
+// expiry and role — pass in_port.PERM_ADMIN to mint an admin token.
 func (j jwtAuthService) Generate(id string, expires time.Time, roles []string) (string, error) {
 	// create jwt token
 	key := j.jwtSecret
 	token := jwt.New(jwt.SigningMethodHS256)
 	claims := token.Claims.(jwt.MapClaims)
 	claims["userID"] = id
+	claims["exp"] = expires.Unix()
+	claims["iat"] = time.Now().Unix()
 
-	time_now := time.Now()
-	time_30_days := time_now.AddDate(0, 0, 30)
-	claims["exp"] = time_30_days.Unix()
-	claims["iat"] = time_now.Unix()
-	claims["role"] = "user"
+	// the token carries a single effective role; default to plain user when none given
+	role := in_port.PERM_USER
 
-	// later we can add a claim to make my user an admin
-	// claims["role"] = "admin"
-	tokenString, _ := token.SignedString(key)
+	if 0 < len(roles) {
+		role = roles[0]
+	}
+
+	claims["role"] = role
+
+	tokenString, sign_err := token.SignedString(key)
+
+	if nil != sign_err {
+		return "", sign_err
+	}
 
 	return tokenString, nil
 }
@@ -53,10 +62,20 @@ func (j jwtAuthService) Validate(token string) (data_objects.AuthValidationRespo
 		return data_objects.AuthValidationResponseObject{Valid: false}, err
 	}
 
+	// a validly-signed token can still be missing the claims we depend on; guard
+	// the assertions so a malformed token is rejected rather than panicking
+	role, roleOK := claims["role"].(string)
+	userID, idOK := claims["userID"].(string)
+
+	if !roleOK || !idOK {
+		log.Println("Error validating token: missing role or userID claim")
+		return data_objects.AuthValidationResponseObject{Valid: false}, errors.New("token missing required claims")
+	}
+
 	validResponse := data_objects.AuthValidationResponseObject{
 		Valid:  true,
-		Role:   claims["role"].(string),
-		UserID: claims["userID"].(string),
+		Role:   role,
+		UserID: userID,
 	}
 
 	return validResponse, nil

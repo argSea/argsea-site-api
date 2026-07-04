@@ -1,6 +1,6 @@
 package in_port
 
-import "github.com/argSea/portfolio_blog_api/argHex/domain"
+import "github.com/argSea/argsea-site-api/argHex/domain"
 
 type ProjectCRUDService interface {
 	GetByUserID(userID string) ([]domain.Project, int64, error)

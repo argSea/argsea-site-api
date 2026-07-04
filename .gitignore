@@ -8,7 +8,7 @@
 *.so
 *.dylib
 logs.txt
-portfolio_blog_api
+argsea-site-api
 
 # Test binary, built with `go test -c`
 *.test
@@ -23,3 +23,5 @@ portfolio_blog_api
 go.work
 *.config
 *.json
+# the tracked config contract is the one json allowed in
+!config.example.json

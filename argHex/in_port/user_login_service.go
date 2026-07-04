@@ -1,6 +1,6 @@
 package in_port
 
-import "github.com/argSea/portfolio_blog_api/argHex/domain"
+import "github.com/argSea/argsea-site-api/argHex/domain"
 
 // user auth interface
 type UserLoginService interface {

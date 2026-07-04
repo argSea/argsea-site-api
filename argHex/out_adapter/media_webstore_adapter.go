@@ -4,9 +4,9 @@ import (
 	"math/rand"
 	"os"
 
-	"github.com/argSea/portfolio_blog_api/argHex/domain"
-	"github.com/argSea/portfolio_blog_api/argHex/out_port"
-	"github.com/argSea/portfolio_blog_api/argHex/utility"
+	"github.com/argSea/argsea-site-api/argHex/domain"
+	"github.com/argSea/argsea-site-api/argHex/out_port"
+	"github.com/argSea/argsea-site-api/argHex/utility"
 )
 
 type mediaWebstoreAdapter struct {

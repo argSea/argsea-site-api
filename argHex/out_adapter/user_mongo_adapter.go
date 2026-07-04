@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/argSea/portfolio_blog_api/argHex/domain"
-	"github.com/argSea/portfolio_blog_api/argHex/out_port"
-	"github.com/argSea/portfolio_blog_api/argHex/stores"
+	"github.com/argSea/argsea-site-api/argHex/domain"
+	"github.com/argSea/argsea-site-api/argHex/out_port"
+	"github.com/argSea/argsea-site-api/argHex/stores"
 )
 
 type userMongoAdapter struct {

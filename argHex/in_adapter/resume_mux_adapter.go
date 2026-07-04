@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/argSea/portfolio_blog_api/argHex/data_objects"
-	"github.com/argSea/portfolio_blog_api/argHex/domain"
-	"github.com/argSea/portfolio_blog_api/argHex/in_port"
+	"github.com/argSea/argsea-site-api/argHex/data_objects"
+	"github.com/argSea/argsea-site-api/argHex/domain"
+	"github.com/argSea/argsea-site-api/argHex/in_port"
 	"github.com/gorilla/mux"
 )
 

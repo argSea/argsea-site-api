@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/argSea/portfolio_blog_api/argHex/data_objects"
-	"github.com/argSea/portfolio_blog_api/argHex/domain"
-	"github.com/argSea/portfolio_blog_api/argHex/in_port"
-	auth "github.com/argSea/portfolio_blog_api/argHex/utility"
+	"github.com/argSea/argsea-site-api/argHex/data_objects"
+	"github.com/argSea/argsea-site-api/argHex/domain"
+	"github.com/argSea/argsea-site-api/argHex/in_port"
+	auth "github.com/argSea/argsea-site-api/argHex/utility"
 	"github.com/gorilla/mux"
 )
 

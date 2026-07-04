@@ -1,8 +1,8 @@
 package out_adapter
 
 import (
-	"github.com/argSea/portfolio_blog_api/argHex/domain"
-	"github.com/argSea/portfolio_blog_api/argHex/out_port"
+	"github.com/argSea/argsea-site-api/argHex/domain"
+	"github.com/argSea/argsea-site-api/argHex/out_port"
 )
 
 type projectFakeOutAdapter struct {
