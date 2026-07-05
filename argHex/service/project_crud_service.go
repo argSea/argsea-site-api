@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -89,8 +91,25 @@ func NewProjectCRUDService(repo out_port.ProjectRepo, revisions in_port.Revision
 	}
 }
 
+// List returns the rack in display order: order asc, ties broken by createdAt
+// asc. Sorting here (not in the repo) keeps both adapters and both filters on
+// one rule.
 func (p projectCRUDService) List(publishedOnly bool, limit int64) (domain.Projects, error) {
-	return p.repo.List(publishedOnly, limit)
+	projects, err := p.repo.List(publishedOnly, limit)
+
+	if nil != err {
+		return nil, err
+	}
+
+	sort.SliceStable(projects, func(i, j int) bool {
+		if projects[i].Order != projects[j].Order {
+			return projects[i].Order < projects[j].Order
+		}
+
+		return projects[i].CreatedAt < projects[j].CreatedAt
+	})
+
+	return projects, nil
 }
 
 func (p projectCRUDService) Read(id string) domain.Project {
@@ -117,6 +136,17 @@ func (p projectCRUDService) Create(project domain.Project) (domain.Project, erro
 	if domain.StatusPublished == project.Status && "" == project.PublishedAt {
 		project.PublishedAt = now
 	}
+
+	// rack placement is server-assigned: a new postcard lands at the end, and
+	// nothing reaches the mantel except through the feature endpoint
+	order, orderErr := p.nextOrder()
+
+	if nil != orderErr {
+		return domain.Project{}, orderErr
+	}
+
+	project.Order = order
+	project.Featured = false
 
 	project.CreatedAt = now
 	project.UpdatedAt = now
@@ -155,6 +185,8 @@ func (p projectCRUDService) Update(project domain.Project) (domain.Project, erro
 	project.Body = utility.SanitizeHTML(project.Body)
 	project.Status = existing.Status
 	project.PublishedAt = existing.PublishedAt
+	project.Order = existing.Order
+	project.Featured = existing.Featured
 	project.CreatedAt = existing.CreatedAt
 	project.UpdatedAt = nowStamp()
 
@@ -223,6 +255,79 @@ func (p projectCRUDService) Unpublish(id string) (domain.Project, error) {
 	p.record("postcard \""+project.Title+"\" unpublished", id)
 
 	return p.repo.Get(id), nil
+}
+
+// Reorder moves the postcard to a new rack position. Lifecycle-style like
+// Publish: activity-logged but never snapshotted — reordering the rack must
+// not spam the revision history.
+func (p projectCRUDService) Reorder(id string, order int) (domain.Project, error) {
+	project := p.repo.Get(id)
+
+	if "" == project.Id {
+		return domain.Project{}, errors.New("project not found")
+	}
+
+	project.Order = order
+	project.UpdatedAt = nowStamp()
+
+	if err := p.repo.Set(project); nil != err {
+		return domain.Project{}, err
+	}
+
+	p.record("postcard \""+project.Title+"\" reordered to "+strconv.Itoa(order), id)
+
+	return p.repo.Get(id), nil
+}
+
+// Feature puts the postcard on the mantel. No cap here — the admin enforces
+// the mantel-fits-three rule; no snapshot either, same as Reorder.
+func (p projectCRUDService) Feature(id string) (domain.Project, error) {
+	return p.setFeatured(id, true, "featured")
+}
+
+// Unfeature takes the postcard off the mantel.
+func (p projectCRUDService) Unfeature(id string) (domain.Project, error) {
+	return p.setFeatured(id, false, "unfeatured")
+}
+
+func (p projectCRUDService) setFeatured(id string, featured bool, verb string) (domain.Project, error) {
+	project := p.repo.Get(id)
+
+	if "" == project.Id {
+		return domain.Project{}, errors.New("project not found")
+	}
+
+	project.Featured = featured
+	project.UpdatedAt = nowStamp()
+
+	if err := p.repo.Set(project); nil != err {
+		return domain.Project{}, err
+	}
+
+	p.record("postcard \""+project.Title+"\" "+verb, id)
+
+	return p.repo.Get(id), nil
+}
+
+// nextOrder places a new postcard after everything already on the rack:
+// max(order)+1 across all projects, published or not. A failed list fails the
+// create — silently defaulting would collide at the front of the rack.
+func (p projectCRUDService) nextOrder() (int, error) {
+	projects, err := p.repo.List(false, 0)
+
+	if nil != err {
+		return 0, err
+	}
+
+	max := 0
+
+	for _, project := range projects {
+		if project.Order > max {
+			max = project.Order
+		}
+	}
+
+	return max + 1, nil
 }
 
 func (p projectCRUDService) Revisions(id string, limit int64) (domain.Revisions, error) {

@@ -10,10 +10,13 @@
   "jwt": {
     "secret": "changeme-long-random-string"
   },
+  "auth": {
+    "cookie_domain": "argsea.com"
+  },
   "media": {
     "images": {
-      "save_path": "/var/www/media/images",
-      "web_path": "https://media.argsea.com/images"
+      "save_path": "/var/www/media/images/",
+      "web_path": "/media/images/"
     }
   },
   "lantern": {

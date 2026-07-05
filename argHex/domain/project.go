@@ -34,6 +34,8 @@ type Project struct {
 	Image        *string  `json:"image" bson:"image,omitempty"` // nullable media name
 	Stamp        *Stamp   `json:"stamp" bson:"stamp,omitempty"` // nullable postage decoration
 	Status       string   `json:"status" bson:"status,omitempty"`
+	Order        int      `json:"order" bson:"order"`             // no omitempty: 0 is a real rack position
+	Featured     bool     `json:"featured" bson:"featured"`       // no omitempty: false must survive a replace write
 	PublishedAt  string   `json:"publishedAt" bson:"publishedAt"` // no omitempty: unpublish must clear it
 	CreatedAt    string   `json:"createdAt" bson:"createdAt,omitempty"`
 	UpdatedAt    string   `json:"updatedAt" bson:"updatedAt,omitempty"`

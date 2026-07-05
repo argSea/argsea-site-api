@@ -22,7 +22,7 @@ func newAuthedRouter(t *testing.T) (in_port.AuthService, *in_adapter.WebAuth, *m
 	t.Helper()
 
 	authService := service.NewJWTAuthService(testSecret)
-	webAuth := in_adapter.NewWebAuth(authService, testSecret)
+	webAuth := in_adapter.NewWebAuth(authService, testSecret, "argsea.com")
 
 	activityService := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())
 
@@ -85,6 +85,29 @@ func TestSessionCookieAuthorizes(t *testing.T) {
 
 	if http.StatusOK != rec.Code {
 		t.Fatalf("expected 200 with a valid session cookie, got %d", rec.Code)
+	}
+}
+
+func TestCookieDomainIsConfigurable(t *testing.T) {
+	authService := service.NewJWTAuthService(testSecret)
+
+	// the domain baked into the session cookie comes from the constructor —
+	// main.go feeds it auth.cookie_domain from the config
+	webAuth := in_adapter.NewWebAuth(authService, testSecret, "cookies.example")
+
+	seed := httptest.NewRequest("GET", "/1/activity", nil)
+	issuer := httptest.NewRecorder()
+	session, _ := webAuth.Store().Get(seed, "auth-token")
+	session.Values["token"] = "whatever"
+
+	if err := session.Save(seed, issuer); nil != err {
+		t.Fatalf("could not issue session cookie: %v", err)
+	}
+
+	cookies := issuer.Result().Cookies()
+
+	if 1 != len(cookies) || "cookies.example" != cookies[0].Domain {
+		t.Fatalf("expected the configured cookie domain, got %+v", cookies)
 	}
 }
 

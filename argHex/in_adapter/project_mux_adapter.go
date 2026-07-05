@@ -36,6 +36,9 @@ func NewProjectMuxAdapter(project in_port.ProjectCRUDService, auth *WebAuth, rou
 	// lifecycle + history
 	router.HandleFunc("/{id}/publish", a.Publish).Methods("POST")
 	router.HandleFunc("/{id}/unpublish", a.Unpublish).Methods("POST")
+	router.HandleFunc("/{id}/reorder", a.Reorder).Methods("POST")
+	router.HandleFunc("/{id}/feature", a.Feature).Methods("POST")
+	router.HandleFunc("/{id}/unfeature", a.Unfeature).Methods("POST")
 	router.HandleFunc("/{id}/revisions", a.Revisions).Methods("GET")
 	router.HandleFunc("/{id}/revisions/{revisionID}/restore", a.Restore).Methods("POST")
 
@@ -155,6 +158,67 @@ func (a projectMuxAdapter) Unpublish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	saved, err := a.project.Unpublish(mux.Vars(r)["id"])
+
+	if nil != err {
+		writeError(w, 400, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, saved)
+}
+
+// Reorder moves the postcard to a new rack position — lifecycle-style, so no
+// revision snapshot behind it.
+func (a projectMuxAdapter) Reorder(w http.ResponseWriter, r *http.Request) {
+	if !requireAuth(a.auth, w, r) {
+		return
+	}
+
+	var body struct {
+		Order *int `json:"order"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); nil != err {
+		writeError(w, 400, err.Error())
+		return
+	}
+
+	if nil == body.Order {
+		writeError(w, 400, "order is required")
+		return
+	}
+
+	saved, err := a.project.Reorder(mux.Vars(r)["id"], *body.Order)
+
+	if nil != err {
+		writeError(w, 400, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, saved)
+}
+
+func (a projectMuxAdapter) Feature(w http.ResponseWriter, r *http.Request) {
+	if !requireAuth(a.auth, w, r) {
+		return
+	}
+
+	saved, err := a.project.Feature(mux.Vars(r)["id"])
+
+	if nil != err {
+		writeError(w, 400, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, saved)
+}
+
+func (a projectMuxAdapter) Unfeature(w http.ResponseWriter, r *http.Request) {
+	if !requireAuth(a.auth, w, r) {
+		return
+	}
+
+	saved, err := a.project.Unfeature(mux.Vars(r)["id"])
 
 	if nil != err {
 		writeError(w, 400, err.Error())

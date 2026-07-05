@@ -21,7 +21,7 @@ func newLanternRouter(t *testing.T) (in_port.AuthService, chan struct{}, *mux.Ro
 	t.Helper()
 
 	authService := service.NewJWTAuthService(testSecret)
-	webAuth := in_adapter.NewWebAuth(authService, testSecret)
+	webAuth := in_adapter.NewWebAuth(authService, testSecret, "argsea.com")
 
 	gate := make(chan struct{})
 	lantern := service.NewLanternService(
