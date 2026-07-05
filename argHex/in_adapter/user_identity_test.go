@@ -11,6 +11,7 @@ import (
 	"github.com/argSea/argsea-site-api/argHex/out_adapter"
 	"github.com/argSea/argsea-site-api/argHex/service"
 	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // newIdentityRouter mounts the user adapter over a stored user document, so
@@ -88,6 +89,62 @@ func TestUserWriteIdentityMatrix(t *testing.T) {
 				t.Fatalf("a refused update still reached the repo: %+v", repo.updated)
 			}
 		})
+	}
+}
+
+func TestUserPutPersistsClearedProfileFields(t *testing.T) {
+	repo, authService, router := newIdentityRouter(t, domain.User{
+		Id:       "keeper",
+		UserName: "meo",
+		Password: domain.Password("stored-hash"),
+		Role:     in_port.PERM_ADMIN,
+		Pronouns: "he/him",
+		Linkedin: "in/argsea",
+	})
+
+	token := mintRoleToken(t, authService, in_port.PERM_ADMIN)
+
+	// pronouns emptied explicitly, linkedin omitted entirely — both are clears
+	// under the PUT's full-replace shape for profile fields
+	rec := userRequest(t, router, "PUT", "/1/user/keeper", token, `{"userName":"meo","name":"Justin","pronouns":""}`)
+
+	if http.StatusOK != rec.Code {
+		t.Fatalf("expected the update to go through, got %d", rec.Code)
+	}
+
+	// the profile keys have no bson omitempty, so the $set document must carry
+	// them even when empty — that is what makes the clear persist in mongo
+	raw, err := bson.Marshal(*repo.updated)
+
+	if nil != err {
+		t.Fatalf("could not bson-marshal the updated user: %v", err)
+	}
+
+	var doc bson.M
+
+	if err := bson.Unmarshal(raw, &doc); nil != err {
+		t.Fatalf("could not decode the marshaled user: %v", err)
+	}
+
+	for _, key := range []string{"pronouns", "linkedin"} {
+		value, present := doc[key]
+
+		if !present || "" != value {
+			t.Fatalf("expected %q carried as an empty string in the $set document, got %v (present: %v)", key, value, present)
+		}
+	}
+
+	if "Justin" != doc["name"] {
+		t.Fatalf("expected the new name in the $set document, got %v", doc["name"])
+	}
+
+	// the credential/role protections must survive the tag change: a body
+	// without a password keeps its omitempty, so the stored hash stays put,
+	// and the stripped role still vanishes from the $set document
+	for _, key := range []string{"password", "role"} {
+		if _, present := doc[key]; present {
+			t.Fatalf("field %q must stay absent from the $set document, got %+v", key, doc)
+		}
 	}
 }
 
