@@ -77,6 +77,11 @@ func (u userMuxAdapter) GetAll(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	// the full user documents are keeper-only — the public read is /profile
+	if !requireAuth(u.auth, w, r) {
+		return
+	}
+
 	limit := int64(0)
 	offset := int64(0)
 	sort := ""
@@ -210,6 +215,12 @@ func (u userMuxAdapter) Get(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(response)
 		}
 	}()
+
+	// the full user document stays gated — anonymous callers get the bare
+	// profile subset through /profile, never userName or role
+	if !requireAuth(u.auth, w, r) {
+		return
+	}
 
 	id := mux.Vars(r)["id"]
 	user_data := u.user.Read(id)

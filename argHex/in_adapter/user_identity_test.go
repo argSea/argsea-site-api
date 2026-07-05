@@ -92,6 +92,25 @@ func TestUserWriteIdentityMatrix(t *testing.T) {
 	}
 }
 
+func TestUserReadsAreAuthGated(t *testing.T) {
+	_, authService, router := newIdentityRouter(t, domain.User{Id: "keeper", UserName: "meo"})
+	token := mintRoleToken(t, authService, in_port.PERM_USER)
+
+	// the full user documents never leave without a token — only /profile is
+	// public; any valid token (self or not) may read
+	cases := []string{"/1/user", "/1/user/", "/1/user/keeper"}
+
+	for _, path := range cases {
+		if rec := userRequest(t, router, "GET", path, "", ""); http.StatusUnauthorized != rec.Code {
+			t.Fatalf("expected 401 for anonymous GET %s, got %d", path, rec.Code)
+		}
+
+		if rec := userRequest(t, router, "GET", path, token, ""); http.StatusOK != rec.Code {
+			t.Fatalf("expected 200 for authed GET %s, got %d", path, rec.Code)
+		}
+	}
+}
+
 func TestUserPutPersistsClearedProfileFields(t *testing.T) {
 	repo, authService, router := newIdentityRouter(t, domain.User{
 		Id:       "keeper",

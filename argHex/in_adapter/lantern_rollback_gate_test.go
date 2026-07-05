@@ -81,8 +81,19 @@ func TestRollbackWithoutPreviousBuildIs409(t *testing.T) {
 	authService, _, router := newRollbackRouter(t, "", nil)
 	token := mintRoleToken(t, authService, in_port.PERM_ADMIN)
 
-	if rec := lanternRequest(t, router, "POST", "/1/lantern/rollback/", token); http.StatusConflict != rec.Code {
+	rec := lanternRequest(t, router, "POST", "/1/lantern/rollback/", token)
+
+	if http.StatusConflict != rec.Code {
 		t.Fatalf("expected 409 with no previous build, got %d", rec.Code)
+	}
+
+	// both 409 shapes carry the LanternStatus body, mirroring hoist — here the
+	// state is idle, which is how the admin tells "nothing kept" from "in flight"
+	var status domain.LanternStatus
+	json.Unmarshal(rec.Body.Bytes(), &status)
+
+	if domain.LanternIdle != status.State {
+		t.Fatalf("expected the idle status in the 409 body, got %s", rec.Body.String())
 	}
 }
 

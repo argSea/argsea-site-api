@@ -1,6 +1,7 @@
 package in_adapter
 
 import (
+	"errors"
 	"io"
 	"net/http"
 
@@ -83,7 +84,7 @@ func (a mediaMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
 	saved, err := a.media.CreateMedia(header.Filename, header.Header.Get("Content-Type"), bytes)
 
 	if nil != err {
-		writeError(w, 400, err.Error())
+		writeError(w, mediaErrorCode(err), err.Error())
 		return
 	}
 
@@ -96,9 +97,21 @@ func (a mediaMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := a.media.DeleteMedia(mux.Vars(r)["id"]); nil != err {
-		writeError(w, 400, err.Error())
+		writeError(w, mediaErrorCode(err), err.Error())
 		return
 	}
 
 	writeJSON(w, http.StatusOK, data_objects.ItemLessResponseObject{Status: "ok", Code: 200})
+}
+
+// mediaErrorCode maps a service error onto its status: 400 when the request
+// itself was rejected, 500 when the infrastructure (disk, mongo) failed.
+func mediaErrorCode(err error) int64 {
+	var validation in_port.MediaValidationError
+
+	if errors.As(err, &validation) {
+		return 400
+	}
+
+	return 500
 }

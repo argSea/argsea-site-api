@@ -139,7 +139,13 @@ func (p projectCRUDService) Create(project domain.Project) (domain.Project, erro
 
 	// rack placement is server-assigned: a new postcard lands at the end, and
 	// nothing reaches the mantel except through the feature endpoint
-	project.Order = p.nextOrder()
+	order, orderErr := p.nextOrder()
+
+	if nil != orderErr {
+		return domain.Project{}, orderErr
+	}
+
+	project.Order = order
 	project.Featured = false
 
 	project.CreatedAt = now
@@ -304,12 +310,13 @@ func (p projectCRUDService) setFeatured(id string, featured bool, verb string) (
 }
 
 // nextOrder places a new postcard after everything already on the rack:
-// max(order)+1 across all projects, published or not.
-func (p projectCRUDService) nextOrder() int {
+// max(order)+1 across all projects, published or not. A failed list fails the
+// create — silently defaulting would collide at the front of the rack.
+func (p projectCRUDService) nextOrder() (int, error) {
 	projects, err := p.repo.List(false, 0)
 
 	if nil != err {
-		log.Printf("could not list projects for order assignment: %v\n", err)
+		return 0, err
 	}
 
 	max := 0
@@ -320,7 +327,7 @@ func (p projectCRUDService) nextOrder() int {
 		}
 	}
 
-	return max + 1
+	return max + 1, nil
 }
 
 func (p projectCRUDService) Revisions(id string, limit int64) (domain.Revisions, error) {

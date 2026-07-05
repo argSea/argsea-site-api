@@ -168,6 +168,36 @@ func TestCreateWithInvalidStampIs400(t *testing.T) {
 	}
 }
 
+func TestReorderWithoutOrderFieldIs400(t *testing.T) {
+	draftID, _, token, router := newProjectRouter(t)
+
+	// a reorder must say where the postcard goes — an empty object and broken
+	// JSON are both rejected before the service is reached
+	for _, body := range []string{`{}`, `{"order":null}`, `not-json`} {
+		req := httptest.NewRequest("POST", "/1/project/"+draftID+"/reorder", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if http.StatusBadRequest != rec.Code {
+			t.Fatalf("expected 400 for reorder body %q, got %d", body, rec.Code)
+		}
+	}
+
+	// and the postcard never moved — the draft still holds its seeded position
+	req := httptest.NewRequest("GET", "/1/project/"+draftID, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	var project domain.Project
+	json.Unmarshal(rec.Body.Bytes(), &project)
+
+	if 1 != project.Order {
+		t.Fatalf("a rejected reorder must not move the postcard, got order %d", project.Order)
+	}
+}
+
 func TestAuthedDraftByIdIsVisible(t *testing.T) {
 	draftID, _, token, router := newProjectRouter(t)
 

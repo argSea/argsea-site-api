@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"log"
 	"path/filepath"
 	"sort"
@@ -66,13 +65,13 @@ func (m mediaService) ListMedia() (domain.MediaList, error) {
 // so an upload can never escape the media directory.
 func (m mediaService) CreateMedia(file_name string, mime_type string, bytes []byte) (domain.Media, error) {
 	if !mediaImageTypes[mime_type] {
-		return domain.Media{}, errors.New("only image uploads are allowed (png, jpeg, gif, svg, webp)")
+		return domain.Media{}, in_port.MediaValidationError{Message: "only image uploads are allowed (png, jpeg, gif, svg, webp)"}
 	}
 
 	file_name = filepath.Base(strings.TrimSpace(file_name))
 
 	if "" == file_name || "." == file_name || ".." == file_name || string(filepath.Separator) == file_name {
-		return domain.Media{}, errors.New("a filename is required")
+		return domain.Media{}, in_port.MediaValidationError{Message: "a filename is required"}
 	}
 
 	// one name, one file — a duplicate would silently overwrite the first
@@ -85,7 +84,7 @@ func (m mediaService) CreateMedia(file_name string, mime_type string, bytes []by
 
 	for _, item := range existing {
 		if item.Filename == file_name {
-			return domain.Media{}, errors.New("a media item named \"" + file_name + "\" already exists")
+			return domain.Media{}, in_port.MediaValidationError{Message: "a media item named \"" + file_name + "\" already exists"}
 		}
 	}
 
@@ -123,7 +122,7 @@ func (m mediaService) DeleteMedia(media_id string) error {
 	media := m.meta.Get(media_id)
 
 	if "" == media.Id {
-		return errors.New("media not found")
+		return in_port.MediaValidationError{Message: "media not found"}
 	}
 
 	if err := m.meta.Remove(media_id); nil != err {
