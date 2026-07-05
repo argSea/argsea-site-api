@@ -4,12 +4,76 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"regexp"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/argSea/argsea-site-api/argHex/domain"
 	"github.com/argSea/argsea-site-api/argHex/in_port"
 	"github.com/argSea/argsea-site-api/argHex/out_port"
 	"github.com/argSea/argsea-site-api/argHex/utility"
 )
+
+// The stamp vocabulary is closed on purpose: ink is rendered into style
+// attributes on the public site, and bluemonday only covers rich-text bodies,
+// so this enum gate is the XSS boundary for stamp data.
+var stampShapes = map[string]bool{"rect": true, "circle": true}
+var stampMotifs = map[string]bool{"lighthouse": true, "boat": true, "sun": true, "wave": true, "moon": true, "anchor": true, "text": true}
+var stampInks = map[string]bool{"#f0d9a8": true, "#93a0e8": true}
+
+// stampCents matches the denomination printed on rect stamps: one or two
+// digits followed by the cent sign, nothing else.
+var stampCents = regexp.MustCompile(`^[0-9]{1,2}¢$`)
+
+// validateStamp normalizes a stamp in place and checks it against the closed
+// vocabulary. A nil stamp is valid — the site falls back to its default
+// decoration. Cents is coupled to the rect shape and text to the text motif
+// (operator ruling 2026-07-04): a stray field on the wrong variant is rejected
+// rather than silently stored unrendered.
+func validateStamp(stamp *domain.Stamp) error {
+	if nil == stamp {
+		return nil
+	}
+
+	// trim before measuring, so the store holds exactly what was validated
+	stamp.Text = strings.TrimSpace(stamp.Text)
+
+	if !stampShapes[stamp.Shape] {
+		return errors.New("stamp shape must be rect or circle")
+	}
+
+	if !stampMotifs[stamp.Motif] {
+		return errors.New("stamp motif must be one of lighthouse, boat, sun, wave, moon, anchor, text")
+	}
+
+	if !stampInks[stamp.Ink] {
+		return errors.New("stamp ink must be #f0d9a8 or #93a0e8")
+	}
+
+	// the denomination belongs to rect stamps only
+	if "" != stamp.Cents && "rect" != stamp.Shape {
+		return errors.New("stamp cents is only valid on a rect stamp")
+	}
+
+	if "" != stamp.Cents && !stampCents.MatchString(stamp.Cents) {
+		return errors.New("stamp cents must be one or two digits followed by ¢")
+	}
+
+	// the text motif requires words; every other motif forbids them
+	if "text" == stamp.Motif && "" == stamp.Text {
+		return errors.New("stamp text is required for the text motif")
+	}
+
+	if "text" != stamp.Motif && "" != stamp.Text {
+		return errors.New("stamp text is only valid on the text motif")
+	}
+
+	if 40 < utf8.RuneCountInString(stamp.Text) {
+		return errors.New("stamp text must be 40 characters or fewer")
+	}
+
+	return nil
+}
 
 type projectCRUDService struct {
 	repo      out_port.ProjectRepo
@@ -34,6 +98,11 @@ func (p projectCRUDService) Read(id string) domain.Project {
 }
 
 func (p projectCRUDService) Create(project domain.Project) (domain.Project, error) {
+	// an invalid stamp never reaches the store — reject before anything is written
+	if err := validateStamp(project.Stamp); nil != err {
+		return domain.Project{}, err
+	}
+
 	now := nowStamp()
 
 	// body is rich text — it lives in the store already sanitized
@@ -76,6 +145,11 @@ func (p projectCRUDService) Update(project domain.Project) (domain.Project, erro
 
 	if "" == existing.Id {
 		return domain.Project{}, errors.New("project not found")
+	}
+
+	// an invalid stamp never reaches the store — reject before anything is written
+	if err := validateStamp(project.Stamp); nil != err {
+		return domain.Project{}, err
 	}
 
 	project.Body = utility.SanitizeHTML(project.Body)
