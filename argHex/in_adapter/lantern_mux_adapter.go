@@ -28,6 +28,9 @@ func NewLanternMuxAdapter(lantern in_port.LanternService, auth *WebAuth, router 
 	router.HandleFunc("/hoist", a.Hoist).Methods("POST")
 	router.HandleFunc("/hoist/", a.Hoist).Methods("POST")
 
+	router.HandleFunc("/rollback", a.Rollback).Methods("POST")
+	router.HandleFunc("/rollback/", a.Rollback).Methods("POST")
+
 	return &a
 }
 
@@ -60,4 +63,32 @@ func (a lanternMuxAdapter) Hoist(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusAccepted, status)
+}
+
+// Rollback re-points the live link at the previous kept build — no rebuild.
+// 200 with the status on success; 409 while a hoist is in flight (carrying the
+// running status, like Hoist) or when nothing older is kept.
+func (a lanternMuxAdapter) Rollback(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(a.auth, w, r) {
+		return
+	}
+
+	status, err := a.lantern.Rollback()
+
+	if errors.Is(err, in_port.ErrHoistAlreadyRunning) {
+		writeJSON(w, http.StatusConflict, status)
+		return
+	}
+
+	if errors.Is(err, in_port.ErrNoPreviousBuild) {
+		writeError(w, 409, err.Error())
+		return
+	}
+
+	if nil != err {
+		writeError(w, 500, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, status)
 }

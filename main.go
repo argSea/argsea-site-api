@@ -129,12 +129,7 @@ func main() {
 	activityTable := "activity"
 	revisionTable := "revisions"
 	lanternTable := "lantern"
-
-	// media (the darkroom) — kept
-	save_path := viper.GetString("media.images.save_path")
-	web_path := viper.GetString("media.images.web_path")
-	mediaWebstoreAdapter := out_adapter.NewMediaWebstoreAdapter(save_path, web_path)
-	mediaService := service.NewMediaService(mediaWebstoreAdapter)
+	mediaTable := "media"
 
 	// routers
 	userRouter := router.PathPrefix("/1/user").Subrouter()
@@ -145,11 +140,20 @@ func main() {
 	suggestionRouter := router.PathPrefix("/1/suggestion").Subrouter()
 	activityRouter := router.PathPrefix("/1/activity").Subrouter()
 	authRouter := router.PathPrefix("/1/auth").Subrouter()
+	mediaRouter := router.PathPrefix("/1/media").Subrouter()
+
+	// the session cookie's domain is deploy-specific (prod vs a local vhost) —
+	// configurable, with the historical hardcoded value as the default
+	cookieDomain := viper.GetString("auth.cookie_domain")
+
+	if "" == cookieDomain {
+		cookieDomain = "argsea.com"
+	}
 
 	// in-process auth: one JWT validator + one cookie/bearer extractor shared
 	// by every adapter (no HTTP round-trips to a validate endpoint)
 	userAuthService := service.NewJWTAuthService(jSecret)
-	webAuth := in_adapter.NewWebAuth(userAuthService, jSecret)
+	webAuth := in_adapter.NewWebAuth(userAuthService, jSecret, cookieDomain)
 
 	// shared history + ship's log — projects and notes snapshot into revisions,
 	// every content mutation records an activity entry
@@ -189,6 +193,16 @@ func main() {
 	suggestionMordor := stores.NewMordor(mongo_db.DB.Collection(suggestionTable), context.Background())
 	suggestionService := service.NewSuggestionService(out_adapter.NewSuggestionMongoAdapter(suggestionMordor), activityService)
 	in_adapter.NewSuggestionMuxAdapter(suggestionService, webAuth, suggestionRouter)
+
+	// media (the darkroom) — metadata in mongo, files on disk behind the
+	// webstore adapter; the same service still carries the legacy base64 path
+	// the user adapter uploads through
+	log.Println("Initializing media")
+	save_path := viper.GetString("media.images.save_path")
+	web_path := viper.GetString("media.images.web_path")
+	mediaMordor := stores.NewMordor(mongo_db.DB.Collection(mediaTable), context.Background())
+	mediaService := service.NewMediaService(out_adapter.NewMediaWebstoreAdapter(save_path, web_path), out_adapter.NewMediaMetaMongoAdapter(mediaMordor), activityService)
+	in_adapter.NewMediaMuxAdapter(mediaService, webAuth, mediaRouter)
 
 	// users — kept (auth depends on it)
 	log.Println("Initializing user")

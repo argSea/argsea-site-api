@@ -26,10 +26,14 @@ func newUserRouter(t *testing.T) (*stubUserRepo, string, *mux.Router) {
 	}
 
 	authService := service.NewJWTAuthService(testSecret)
-	webAuth := in_adapter.NewWebAuth(authService, testSecret)
+	webAuth := in_adapter.NewWebAuth(authService, testSecret, "argsea.com")
 
 	userService := service.NewUserCRUDService(repo)
-	mediaService := service.NewMediaService(out_adapter.NewMediaWebstoreAdapter("", ""))
+	mediaService := service.NewMediaService(
+		out_adapter.NewMediaWebstoreAdapter("", ""),
+		out_adapter.NewMediaMetaFakeOutAdapter(),
+		service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
+	)
 
 	router := mux.NewRouter()
 	in_adapter.NewUserMuxAdapter(userService, mediaService, webAuth, router.PathPrefix("/1/user").Subrouter())
@@ -71,7 +75,9 @@ func TestUserCreateStripsBodyRole(t *testing.T) {
 func TestUserUpdateCannotSelfGrantAdmin(t *testing.T) {
 	repo, token, router := newUserRouter(t)
 
-	rec := userRequest(t, router, "PUT", "/1/user/12345", token, `{"userName":"meo","role":"admin"}`)
+	// the token belongs to "keeper", so the self-update path is the one that
+	// passes the identity gate
+	rec := userRequest(t, router, "PUT", "/1/user/keeper", token, `{"userName":"meo","role":"admin"}`)
 
 	if http.StatusOK != rec.Code {
 		t.Fatalf("expected the update to go through, got %d", rec.Code)

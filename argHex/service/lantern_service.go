@@ -92,6 +92,43 @@ func (l *lanternService) Hoist() (domain.LanternStatus, error) {
 	return status, nil
 }
 
+// Rollback re-points the live link at the previous kept generation — no
+// rebuild, just the symlink swap. The lock is held across the filesystem work
+// (two fast symlink operations) so a hoist can neither start mid-rollback nor
+// be running while the link moves.
+func (l *lanternService) Rollback() (domain.LanternStatus, error) {
+	l.mu.Lock()
+
+	if domain.LanternBuilding == l.status.State || domain.LanternSwapping == l.status.State {
+		status := l.status
+		l.mu.Unlock()
+
+		return status, in_port.ErrHoistAlreadyRunning
+	}
+
+	previous, err := l.releases.Previous()
+
+	if nil == err && "" == previous {
+		err = in_port.ErrNoPreviousBuild
+	}
+
+	if nil == err {
+		err = l.releases.Swap(previous)
+	}
+
+	status := l.status
+	l.mu.Unlock()
+
+	if nil != err {
+		return status, err
+	}
+
+	// outside the lock, like every other ship's-log write
+	l.record("lantern rolled back")
+
+	return status, nil
+}
+
 // Status returns a copy of the current hoist status for polling.
 func (l *lanternService) Status() domain.LanternStatus {
 	l.mu.Lock()

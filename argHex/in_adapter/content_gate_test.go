@@ -22,7 +22,7 @@ func newProjectRouter(t *testing.T) (string, string, string, *mux.Router) {
 	t.Helper()
 
 	authService := service.NewJWTAuthService(testSecret)
-	webAuth := in_adapter.NewWebAuth(authService, testSecret)
+	webAuth := in_adapter.NewWebAuth(authService, testSecret, "argsea.com")
 
 	revisions := service.NewRevisionService(out_adapter.NewRevisionFakeOutAdapter())
 	activity := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())

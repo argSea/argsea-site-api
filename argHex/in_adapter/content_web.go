@@ -60,6 +60,26 @@ func requireAdmin(auth *WebAuth, w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
+// requireSelfOrAdmin gates a per-user write: 401 when the request carries no
+// valid token, 403 when the token is valid but belongs to neither the target
+// user nor an admin. Returns false when the caller may not proceed, mirroring
+// requireAuth.
+func requireSelfOrAdmin(auth *WebAuth, w http.ResponseWriter, r *http.Request, id string) bool {
+	claims, authorized := auth.Claims(r)
+
+	if !authorized {
+		writeError(w, 401, "Unauthorized")
+		return false
+	}
+
+	if claims.UserID != id && in_port.PERM_ADMIN != claims.Role {
+		writeError(w, 403, "Forbidden")
+		return false
+	}
+
+	return true
+}
+
 // queryLimit reads an optional ?limit= integer, defaulting to fallback when it
 // is absent or unparseable.
 func queryLimit(r *http.Request, fallback int64) int64 {

@@ -78,7 +78,7 @@ func newLoginRouter(t *testing.T, storedRole string) (in_port.AuthService, *mux.
 	}
 
 	authService := service.NewJWTAuthService(testSecret)
-	webAuth := in_adapter.NewWebAuth(authService, testSecret)
+	webAuth := in_adapter.NewWebAuth(authService, testSecret, "argsea.com")
 	loginService := service.NewUserLoginService(repo)
 
 	router := mux.NewRouter()

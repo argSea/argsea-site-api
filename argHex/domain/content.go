@@ -17,4 +17,5 @@ const (
 	EntitySuggestion = "suggestion"
 	EntityCopy       = "copy"
 	EntityLantern    = "lantern"
+	EntityMedia      = "media"
 )

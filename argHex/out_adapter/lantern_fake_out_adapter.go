@@ -42,7 +42,8 @@ type LanternFakeReleaseStore struct {
 	Staged  []string
 	Swapped []string
 	Pruned  []int
-	Err     error // returned by Stage when set
+	Prev    string // returned by Previous
+	Err     error  // returned by Stage when set
 }
 
 func (f *LanternFakeReleaseStore) Stage(distDir string) (string, error) {
@@ -65,4 +66,8 @@ func (f *LanternFakeReleaseStore) Prune(keep int) error {
 	f.Pruned = append(f.Pruned, keep)
 
 	return nil
+}
+
+func (f *LanternFakeReleaseStore) Previous() (string, error) {
+	return f.Prev, nil
 }

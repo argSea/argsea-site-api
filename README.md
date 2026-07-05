@@ -54,7 +54,7 @@ process env for the build. It is an array, not a JSON object, because the
 config loader lowercases object keys (`ARGSEA_API_URL` would silently become
 `argsea_api_url`).
 
-Both routes require a JWT whose `role` claim is `admin` — 401 without a valid
+All three routes require a JWT whose `role` claim is `admin` — 401 without a valid
 token, 403 with a plain-user one. Login mints the role stored on the user
 document; roles are never accepted from request bodies, so admin is granted
 only by a direct DB update.
@@ -66,4 +66,8 @@ curl -X POST 'http://127.0.0.1:8181/1/lantern/hoist/' -H 'Authorization: Bearer 
 # poll it — state: idle|building|swapping|succeeded|failed, plus startedAt,
 # finishedAt, lastHoistedAt, and a bounded tail of build output
 curl 'http://127.0.0.1:8181/1/lantern/' -H 'Authorization: Bearer <admin jwt>'
+
+# roll back — re-points the live link at the previous kept generation, no
+# rebuild. 200 with the status, 409 if a hoist is running or nothing older is kept
+curl -X POST 'http://127.0.0.1:8181/1/lantern/rollback/' -H 'Authorization: Bearer <admin jwt>'
 ```

@@ -13,4 +13,7 @@ type ReleaseStore interface {
 	// Prune deletes all but the keep newest generations, never touching the one
 	// the live link currently points at.
 	Prune(keep int) error
+	// Previous returns the kept generation immediately older than the one the
+	// live link points at, or "" when there is nothing to roll back to.
+	Previous() (string, error)
 }

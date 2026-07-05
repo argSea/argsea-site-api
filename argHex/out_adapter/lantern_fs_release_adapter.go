@@ -1,6 +1,8 @@
 package out_adapter
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -64,6 +66,52 @@ func (l lanternFSReleaseAdapter) Swap(generationDir string) error {
 	}
 
 	return os.Rename(temp, l.liveLink)
+}
+
+// Previous returns the generation immediately older than the live one, or ""
+// when the live link doesn't exist, points outside the kept generations, or
+// already points at the oldest.
+func (l lanternFSReleaseAdapter) Previous() (string, error) {
+	current, err := os.Readlink(l.liveLink)
+
+	if nil != err {
+		// no live link yet means nothing to roll back from — not an error
+		if errors.Is(err, fs.ErrNotExist) {
+			return "", nil
+		}
+
+		return "", err
+	}
+
+	current = filepath.Clean(current)
+
+	entries, err := os.ReadDir(l.releasesDir)
+
+	if nil != err {
+		return "", err
+	}
+
+	var generations []string
+
+	for _, entry := range entries {
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), lanternGenerationPrefix) {
+			generations = append(generations, entry.Name())
+		}
+	}
+
+	sort.Strings(generations) // fixed-width stamps: string sort == chronological
+
+	for i, name := range generations {
+		if filepath.Clean(filepath.Join(l.releasesDir, name)) == current {
+			if 0 == i {
+				return "", nil
+			}
+
+			return filepath.Join(l.releasesDir, generations[i-1]), nil
+		}
+	}
+
+	return "", nil
 }
 
 // Prune removes all but the keep newest generations. The generation the live

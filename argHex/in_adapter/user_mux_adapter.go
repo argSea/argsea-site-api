@@ -42,6 +42,24 @@ func NewUserMuxAdapter(u in_port.UserCRUDService, m in_port.MediaService, auth *
 	router.HandleFunc("/{id}/", adapter.Get).Methods("GET")
 	router.HandleFunc("/{id}/", adapter.Update).Methods("PUT")
 	router.HandleFunc("/{id}/", adapter.Delete).Methods("DELETE")
+
+	// public keeper profile — the one unauthenticated user read; the site build
+	// and the admin greeting both consume it
+	router.HandleFunc("/{id}/profile", adapter.Profile).Methods("GET")
+	router.HandleFunc("/{id}/profile/", adapter.Profile).Methods("GET")
+}
+
+// Profile serves the bare public keeper subset — the nine profile fields only,
+// never username, password, or role. Unknown users 404.
+func (u userMuxAdapter) Profile(w http.ResponseWriter, r *http.Request) {
+	user_data := u.user.Read(mux.Vars(r)["id"])
+
+	if "" == user_data.Id {
+		writeError(w, 404, "Not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, user_data.Profile())
 }
 
 func (u userMuxAdapter) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -274,7 +292,9 @@ func (u userMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 	// update leaves the stored role untouched, so a PUT cannot self-grant admin
 	user.Role = ""
 
-	if !requireAuth(u.auth, w, r) {
+	// a valid token alone is not enough — it must belong to the user being
+	// rewritten, or carry the admin role
+	if !requireSelfOrAdmin(u.auth, w, r, id) {
 		return
 	}
 
@@ -478,7 +498,9 @@ func (u userMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	user.Id = id
 
-	if !requireAuth(u.auth, w, r) {
+	// same identity rule as Update: only the user themself or an admin may
+	// delete a user document
+	if !requireSelfOrAdmin(u.auth, w, r, id) {
 		return
 	}
 
