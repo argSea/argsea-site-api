@@ -73,7 +73,7 @@ func (a noteMuxAdapter) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a noteMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -95,7 +95,7 @@ func (a noteMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a noteMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -119,7 +119,7 @@ func (a noteMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a noteMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -132,7 +132,7 @@ func (a noteMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a noteMuxAdapter) Publish(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -147,7 +147,7 @@ func (a noteMuxAdapter) Publish(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a noteMuxAdapter) Unpublish(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -181,7 +181,7 @@ func (a noteMuxAdapter) Revisions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a noteMuxAdapter) Restore(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 

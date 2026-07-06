@@ -79,7 +79,7 @@ func (a projectMuxAdapter) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a projectMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -101,7 +101,7 @@ func (a projectMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a projectMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -125,7 +125,7 @@ func (a projectMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a projectMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -138,7 +138,7 @@ func (a projectMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a projectMuxAdapter) Publish(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -153,7 +153,7 @@ func (a projectMuxAdapter) Publish(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a projectMuxAdapter) Unpublish(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -170,7 +170,7 @@ func (a projectMuxAdapter) Unpublish(w http.ResponseWriter, r *http.Request) {
 // Reorder moves the postcard to a new rack position — lifecycle-style, so no
 // revision snapshot behind it.
 func (a projectMuxAdapter) Reorder(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -199,7 +199,7 @@ func (a projectMuxAdapter) Reorder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a projectMuxAdapter) Feature(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -214,7 +214,7 @@ func (a projectMuxAdapter) Feature(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a projectMuxAdapter) Unfeature(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -250,7 +250,7 @@ func (a projectMuxAdapter) Revisions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a projectMuxAdapter) Restore(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 

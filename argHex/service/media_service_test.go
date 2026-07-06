@@ -57,7 +57,7 @@ func TestCreateMediaWritesFileAndMetadata(t *testing.T) {
 func TestCreateMediaRejectsNonImages(t *testing.T) {
 	media, _, dir := newDarkroom(t)
 
-	for _, contentType := range []string{"application/pdf", "text/html", "video/mp4", ""} {
+	for _, contentType := range []string{"application/pdf", "text/html", "video/mp4", "image/svg+xml", ""} {
 		if _, err := media.CreateMedia("payload.png", contentType, []byte("nope")); nil == err {
 			t.Fatalf("expected content type %q rejected", contentType)
 		}

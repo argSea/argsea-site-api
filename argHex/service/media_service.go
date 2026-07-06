@@ -13,13 +13,14 @@ import (
 
 // The darkroom takes photographs only — these content types are the whole
 // vocabulary, and anything else is rejected before a byte lands on disk.
+// SVG is deliberately absent: files serve static from /media/images/, so a
+// navigated-to SVG would run script in the argsea.com origin.
 var mediaImageTypes = map[string]bool{
-	"image/png":     true,
-	"image/jpeg":    true,
-	"image/jpg":     true,
-	"image/gif":     true,
-	"image/svg+xml": true,
-	"image/webp":    true,
+	"image/png":  true,
+	"image/jpeg": true,
+	"image/jpg":  true,
+	"image/gif":  true,
+	"image/webp": true,
 }
 
 type mediaService struct {
@@ -65,7 +66,7 @@ func (m mediaService) ListMedia() (domain.MediaList, error) {
 // so an upload can never escape the media directory.
 func (m mediaService) CreateMedia(file_name string, mime_type string, bytes []byte) (domain.Media, error) {
 	if !mediaImageTypes[mime_type] {
-		return domain.Media{}, in_port.MediaValidationError{Message: "only image uploads are allowed (png, jpeg, gif, svg, webp)"}
+		return domain.Media{}, in_port.MediaValidationError{Message: "only image uploads are allowed (png, jpeg, gif, webp)"}
 	}
 
 	file_name = filepath.Base(strings.TrimSpace(file_name))

@@ -49,7 +49,7 @@ func (a suggestionMuxAdapter) List(w http.ResponseWriter, r *http.Request) {
 
 // Add appends a chip. The body carries just the value: {"value": "kayaking?"}.
 func (a suggestionMuxAdapter) Add(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -73,7 +73,7 @@ func (a suggestionMuxAdapter) Add(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a suggestionMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 

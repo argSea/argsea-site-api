@@ -17,7 +17,7 @@ import (
 
 // newUserRouter mounts the real user adapter over the capturing stub repo, so
 // the role-stripping is exercised at the HTTP seam — body in, repo call out.
-func newUserRouter(t *testing.T) (*stubUserRepo, string, *mux.Router) {
+func newUserRouter(t *testing.T) (*stubUserRepo, in_port.AuthService, *mux.Router) {
 	t.Helper()
 
 	repo := &stubUserRepo{
@@ -38,9 +38,7 @@ func newUserRouter(t *testing.T) (*stubUserRepo, string, *mux.Router) {
 	router := mux.NewRouter()
 	in_adapter.NewUserMuxAdapter(userService, mediaService, webAuth, router.PathPrefix("/1/user").Subrouter())
 
-	token := mintRoleToken(t, authService, in_port.PERM_USER)
-
-	return repo, token, router
+	return repo, authService, router
 }
 
 func userRequest(t *testing.T, router *mux.Router, method string, path string, token string, body string) *httptest.ResponseRecorder {
@@ -55,7 +53,10 @@ func userRequest(t *testing.T, router *mux.Router, method string, path string, t
 }
 
 func TestUserCreateStripsBodyRole(t *testing.T) {
-	repo, token, router := newUserRouter(t)
+	repo, authService, router := newUserRouter(t)
+
+	// creating a user is an admin-only action now
+	token := mintRoleToken(t, authService, in_port.PERM_ADMIN)
 
 	rec := userRequest(t, router, "POST", "/1/user", token, `{"userName":"sneak","role":"admin"}`)
 
@@ -73,10 +74,11 @@ func TestUserCreateStripsBodyRole(t *testing.T) {
 }
 
 func TestUserUpdateCannotSelfGrantAdmin(t *testing.T) {
-	repo, token, router := newUserRouter(t)
+	repo, authService, router := newUserRouter(t)
 
 	// the token belongs to "keeper", so the self-update path is the one that
 	// passes the identity gate
+	token := mintRoleToken(t, authService, in_port.PERM_USER)
 	rec := userRequest(t, router, "PUT", "/1/user/keeper", token, `{"userName":"meo","role":"admin"}`)
 
 	if http.StatusOK != rec.Code {
