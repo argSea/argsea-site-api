@@ -76,6 +76,31 @@ func TestCreateMediaRejectsNonImages(t *testing.T) {
 	}
 }
 
+func TestUploadMediaRejectsSvg(t *testing.T) {
+	media, _, dir := newDarkroom(t)
+
+	// the legacy base64 path (profile pictures, contact icons) runs the same
+	// image-type gate as CreateMedia — an svg must never land on disk
+	if _, err := media.UploadMedia("image/svg+xml", []byte("<svg onload=alert(1)>")); nil == err {
+		t.Fatalf("expected image/svg+xml rejected on the base64 path")
+	}
+
+	entries, _ := os.ReadDir(dir)
+
+	if 0 != len(entries) {
+		t.Fatalf("a rejected upload must leave nothing on disk, found %d files", len(entries))
+	}
+}
+
+func TestUploadMediaAcceptsImage(t *testing.T) {
+	media, _, _ := newDarkroom(t)
+
+	// a legit profile picture still goes through the base64 path
+	if _, err := media.UploadMedia("image/png", []byte("png-bytes")); nil != err {
+		t.Fatalf("expected image/png accepted on the base64 path, got %v", err)
+	}
+}
+
 func TestCreateMediaSanitizesFilenameToItsBase(t *testing.T) {
 	media, _, dir := newDarkroom(t)
 

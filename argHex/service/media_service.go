@@ -39,10 +39,27 @@ func NewMediaService(mediaRepo out_port.MediaRepo, meta out_port.MediaMetaRepo, 
 	}
 }
 
-// UploadMedia is the legacy base64 path the user adapter still calls: bytes to
-// disk under a random name, no metadata document.
+// UploadMedia is the legacy base64 path the user adapter still calls (profile
+// pictures, contact icons): bytes to disk under a random name, no metadata
+// document. It shares the same image-type gate as CreateMedia so neither pipe
+// can land an svg on disk.
 func (m mediaService) UploadMedia(mime_type string, bytes []byte) (string, error) {
+	if err := allowedImageType(mime_type); nil != err {
+		return "", err
+	}
+
 	return m.mediaRepo.UploadMedia(mime_type, bytes)
+}
+
+// allowedImageType is the single upload-policy chokepoint both the named and the
+// base64 path run through, so the allowlist and its rejection message have one
+// home.
+func allowedImageType(mime_type string) error {
+	if !mediaImageTypes[mime_type] {
+		return in_port.MediaValidationError{Message: "only image uploads are allowed (png, jpeg, gif, webp)"}
+	}
+
+	return nil
 }
 
 // ListMedia returns every darkroom item newest first. Fixed-width stamps make
@@ -65,8 +82,8 @@ func (m mediaService) ListMedia() (domain.MediaList, error) {
 // disk and a metadata document in mongo. The filename is reduced to its base
 // so an upload can never escape the media directory.
 func (m mediaService) CreateMedia(file_name string, mime_type string, bytes []byte) (domain.Media, error) {
-	if !mediaImageTypes[mime_type] {
-		return domain.Media{}, in_port.MediaValidationError{Message: "only image uploads are allowed (png, jpeg, gif, webp)"}
+	if err := allowedImageType(mime_type); nil != err {
+		return domain.Media{}, err
 	}
 
 	file_name = filepath.Base(strings.TrimSpace(file_name))
