@@ -1,0 +1,109 @@
+package domain_test
+
+import (
+	"testing"
+
+	"github.com/argSea/argsea-site-api/argHex/domain"
+	"go.mongodb.org/mongo-driver/bson"
+)
+
+// The eggs contract is absent-means-on, so an explicit false is the only way
+// to switch one off. These tests guard the trap: an omitempty on the inner
+// bools would drop the false during the Replace-based Save and the egg would
+// come back on by itself.
+
+func TestEggsFalseSurvivesBsonRoundTrip(t *testing.T) {
+	flags := domain.SiteCopy{
+		Eggs:    &domain.Eggs{Bottle: false, Cat: true, Lights: true},
+		CatLocs: &domain.CatLocs{Postcards: true, Notes: false, P404: true},
+	}
+
+	raw, err := bson.Marshal(flags)
+	if nil != err {
+		t.Fatalf("marshal failed: %v", err)
+	}
+
+	var doc bson.M
+	if err := bson.Unmarshal(raw, &doc); nil != err {
+		t.Fatalf("unmarshal to doc failed: %v", err)
+	}
+
+	eggs, ok := doc["eggs"].(bson.M)
+	if !ok {
+		t.Fatalf("eggs block missing from the persisted doc: %v", doc)
+	}
+	if false != eggs["bottle"] {
+		t.Fatalf("the bottle was switched off but the doc says %v — omitempty ate the false", eggs["bottle"])
+	}
+
+	locs, ok := doc["catLocs"].(bson.M)
+	if !ok {
+		t.Fatalf("catLocs block missing from the persisted doc: %v", doc)
+	}
+	if false != locs["notes"] {
+		t.Fatalf("the cat was banned from notes but the doc says %v — omitempty ate the false", locs["notes"])
+	}
+
+	var back domain.SiteCopy
+	if err := bson.Unmarshal(raw, &back); nil != err {
+		t.Fatalf("unmarshal to SiteCopy failed: %v", err)
+	}
+	if nil == back.Eggs || back.Eggs.Bottle || !back.Eggs.Cat {
+		t.Fatalf("eggs did not round-trip: %+v", back.Eggs)
+	}
+	if nil == back.CatLocs || back.CatLocs.Notes || !back.CatLocs.P404 {
+		t.Fatalf("catLocs did not round-trip: %+v", back.CatLocs)
+	}
+}
+
+func TestLegacyDocRoundTripsWithoutEggBlocks(t *testing.T) {
+	// a pre-eggs doc has none of the new fields; it must save without growing
+	// them and load with nil pointers so consumers can default to everything-on
+	raw, err := bson.Marshal(domain.SiteCopy{QuipHello: "ahoy"})
+	if nil != err {
+		t.Fatalf("marshal failed: %v", err)
+	}
+
+	var doc bson.M
+	if err := bson.Unmarshal(raw, &doc); nil != err {
+		t.Fatalf("unmarshal to doc failed: %v", err)
+	}
+	for _, key := range []string{"eggs", "catLocs", "bottleProverbs", "lighthouses"} {
+		if _, present := doc[key]; present {
+			t.Fatalf("legacy doc grew a %q block it never had: %v", key, doc)
+		}
+	}
+
+	var back domain.SiteCopy
+	if err := bson.Unmarshal(raw, &back); nil != err {
+		t.Fatalf("unmarshal to SiteCopy failed: %v", err)
+	}
+	if nil != back.Eggs || nil != back.CatLocs {
+		t.Fatalf("legacy doc should load with nil egg config, got eggs=%+v catLocs=%+v", back.Eggs, back.CatLocs)
+	}
+}
+
+func TestLighthousesKeepTheirKeys(t *testing.T) {
+	flags := domain.SiteCopy{
+		BottleProverbs: []string{"a smooth sea never made a skilled sailor"},
+		Lighthouses: []domain.Lighthouse{
+			{Name: "Fastnet Rock", Pos: "51°23′N 9°36′W", Line: "Ireland's teardrop."},
+		},
+	}
+
+	raw, err := bson.Marshal(flags)
+	if nil != err {
+		t.Fatalf("marshal failed: %v", err)
+	}
+
+	var back domain.SiteCopy
+	if err := bson.Unmarshal(raw, &back); nil != err {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+	if 1 != len(back.BottleProverbs) || "a smooth sea never made a skilled sailor" != back.BottleProverbs[0] {
+		t.Fatalf("proverbs did not round-trip: %v", back.BottleProverbs)
+	}
+	if 1 != len(back.Lighthouses) || "Fastnet Rock" != back.Lighthouses[0].Name || "51°23′N 9°36′W" != back.Lighthouses[0].Pos {
+		t.Fatalf("light list did not round-trip: %+v", back.Lighthouses)
+	}
+}
