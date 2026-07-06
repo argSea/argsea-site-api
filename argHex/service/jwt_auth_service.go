@@ -55,7 +55,7 @@ func (j jwtAuthService) Validate(token string) (data_objects.AuthValidationRespo
 	claims := jwt.MapClaims{}
 	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
 		return j.jwtSecret, nil
-	})
+	}, jwt.WithValidMethods([]string{"HS256"}))
 
 	if nil != err {
 		log.Println("Error parsing token: ", err)

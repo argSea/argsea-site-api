@@ -34,7 +34,7 @@ func (a siteCopyMuxAdapter) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a siteCopyMuxAdapter) Save(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 

@@ -59,7 +59,7 @@ func (a mediaMuxAdapter) List(w http.ResponseWriter, r *http.Request) {
 // filename and content type travel to the service, which owns the image-only
 // gate.
 func (a mediaMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -92,7 +92,7 @@ func (a mediaMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a mediaMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 

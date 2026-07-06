@@ -167,6 +167,26 @@ func TestUserPutPersistsClearedProfileFields(t *testing.T) {
 	}
 }
 
+func TestUserProfilePictureRejectsSvg(t *testing.T) {
+	repo, authService, router := newIdentityRouter(t, domain.User{Id: "keeper", UserName: "meo"})
+
+	// a non-admin can self-PUT, and the picture is served static from
+	// /media/images/ on the PUBLIC profile page — so a data:image/svg+xml
+	// picture is the reachable svg-execution hole and must be refused
+	token := mintRoleToken(t, authService, in_port.PERM_USER)
+
+	rec := userRequest(t, router, "PUT", "/1/user/keeper", token,
+		`{"userName":"meo","pictures":[{"image":{"src":"data:image/svg+xml;base64,PHN2Zz48L3N2Zz4="}}]}`)
+
+	if http.StatusOK == rec.Code {
+		t.Fatalf("expected an svg profile picture to be refused, got 200")
+	}
+
+	if "" != repo.updated.UserName {
+		t.Fatalf("a refused svg upload must not persist the user: %+v", repo.updated)
+	}
+}
+
 func TestUserProfileIsPublicAndBare(t *testing.T) {
 	_, _, router := newIdentityRouter(t, domain.User{
 		Id:       "keeper",

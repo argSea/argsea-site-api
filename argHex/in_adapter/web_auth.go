@@ -29,6 +29,7 @@ func NewWebAuth(auth in_port.AuthService, secret []byte, cookieDomain string) *W
 		MaxAge:   24 * 60 * 60,
 		HttpOnly: true,
 		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
 	}
 
 	return &WebAuth{

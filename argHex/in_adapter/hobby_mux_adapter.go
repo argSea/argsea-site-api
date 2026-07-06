@@ -57,7 +57,7 @@ func (a hobbyMuxAdapter) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a hobbyMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -79,7 +79,7 @@ func (a hobbyMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a hobbyMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
@@ -103,7 +103,7 @@ func (a hobbyMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a hobbyMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
-	if !requireAuth(a.auth, w, r) {
+	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 

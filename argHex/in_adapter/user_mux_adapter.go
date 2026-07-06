@@ -165,7 +165,7 @@ func (u userMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	if !requireAuth(u.auth, w, r) {
+	if !requireAdmin(u.auth, w, r) {
 		return
 	}
 
