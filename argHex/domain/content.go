@@ -18,4 +18,5 @@ const (
 	EntityCopy       = "copy"
 	EntityLantern    = "lantern"
 	EntityMedia      = "media"
+	EntityFigurehead = "figurehead"
 )
