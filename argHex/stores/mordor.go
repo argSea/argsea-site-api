@@ -3,7 +3,6 @@ package stores
 import (
 	"context"
 	"errors"
-	"log"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -24,7 +23,6 @@ func NewMordor(col *mongo.Collection, ctx context.Context) *Mordor {
 }
 
 func (m *Mordor) Get(field string, value interface{}, decoder interface{}) error {
-	log.Printf("field: %v; value %v; decoder: %+v\n", field, value, decoder)
 	if nil == m.collection {
 		return errors.New("connection not setup")
 	}
@@ -49,7 +47,6 @@ func (m *Mordor) Get(field string, value interface{}, decoder interface{}) error
 }
 
 func (m *Mordor) GetMany(field string, value interface{}, limit int64, offset int64, sort interface{}, decoder interface{}) (int64, error) {
-	log.Printf("field: %v; value %v; limit %v; offset %v; sort %+v; decoder: %+v\n", field, value, limit, offset, sort, decoder)
 	if nil == m.collection {
 		return 0, errors.New("connection not setup")
 	}
@@ -57,7 +54,8 @@ func (m *Mordor) GetMany(field string, value interface{}, limit int64, offset in
 	count, cErr := m.collection.EstimatedDocumentCount(m.ctx, nil)
 
 	if nil != cErr {
-		return 0, cErr
+		// count is advisory
+		count = 0
 	}
 
 	findOpts := options.Find()
@@ -65,9 +63,6 @@ func (m *Mordor) GetMany(field string, value interface{}, limit int64, offset in
 	findOpts.SetSkip(offset)
 	findOpts.SetSort(sort)
 	cursor, err := m.collection.Find(m.ctx, bson.M{field: value}, findOpts)
-
-	log.Printf("cursor: %+v\n", cursor)
-	log.Printf("err: %+v\n", err)
 
 	if nil != err {
 		return 0, err
@@ -79,7 +74,6 @@ func (m *Mordor) GetMany(field string, value interface{}, limit int64, offset in
 }
 
 func (m *Mordor) GetAll(limit int64, offset int64, sort interface{}, decoder interface{}) (int64, error) {
-	log.Printf("limit: %v; offset %v; sort: %+v; decoder: %+v;\n", limit, offset, sort, decoder)
 	if nil == m.collection {
 		return 0, errors.New("connection not setup")
 	}
@@ -87,7 +81,8 @@ func (m *Mordor) GetAll(limit int64, offset int64, sort interface{}, decoder int
 	count, cErr := m.collection.EstimatedDocumentCount(m.ctx, nil)
 
 	if nil != cErr {
-		return 0, cErr
+		// count is advisory
+		count = 0
 	}
 
 	findOpts := options.Find()
@@ -95,9 +90,6 @@ func (m *Mordor) GetAll(limit int64, offset int64, sort interface{}, decoder int
 	findOpts.SetSkip(offset)
 	findOpts.SetSort(sort)
 	cursor, err := m.collection.Find(m.ctx, bson.D{}, findOpts)
-
-	log.Printf("cursor: %+v\n", cursor)
-	log.Printf("err: %+v\n", err)
 
 	if nil != err {
 		return 0, err
@@ -109,8 +101,6 @@ func (m *Mordor) GetAll(limit int64, offset int64, sort interface{}, decoder int
 }
 
 func (m *Mordor) Write(data interface{}) (string, error) {
-	log.Printf("value %+v;\n", data)
-
 	if nil == m.collection {
 		return "", errors.New("connection not setup")
 	}
@@ -131,7 +121,6 @@ func (m *Mordor) Write(data interface{}) (string, error) {
 }
 
 func (m *Mordor) Update(key string, newData interface{}) error {
-	log.Printf("key: %v; new_data %+v\n", key, newData)
 	if nil == m.collection {
 		return errors.New("connection not setup")
 	}
@@ -163,7 +152,6 @@ func (m *Mordor) Update(key string, newData interface{}) error {
 // This exactly matches the snapshot/restore model: what you write is what the
 // document becomes.
 func (m *Mordor) Replace(key string, newData interface{}) error {
-	log.Printf("key: %v; new_data %+v\n", key, newData)
 	if nil == m.collection {
 		return errors.New("connection not setup")
 	}
@@ -183,7 +171,6 @@ func (m *Mordor) Replace(key string, newData interface{}) error {
 // the "current" flag across an entity's other revisions after a new current
 // revision lands.
 func (m *Mordor) UpdateMany(filter interface{}, set interface{}) error {
-	log.Printf("filter: %+v; set %+v\n", filter, set)
 	if nil == m.collection {
 		return errors.New("connection not setup")
 	}
@@ -200,7 +187,6 @@ func (m *Mordor) UpdateMany(filter interface{}, set interface{}) error {
 }
 
 func (m *Mordor) Delete(key string) error {
-	log.Printf("key: %v;\n", key)
 	if nil == m.collection {
 		return errors.New("connection not setup")
 	}
