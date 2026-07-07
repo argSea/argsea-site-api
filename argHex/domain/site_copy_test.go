@@ -14,8 +14,7 @@ import (
 
 func TestEggsFalseSurvivesBsonRoundTrip(t *testing.T) {
 	flags := domain.SiteCopy{
-		Eggs:    &domain.Eggs{Bottle: false, Cat: true, Lights: true},
-		CatLocs: &domain.CatLocs{Postcards: true, Notes: false, P404: true},
+		Eggs: &domain.Eggs{Bottle: false, Cat: true, Lights: true},
 	}
 
 	raw, err := bson.Marshal(flags)
@@ -36,14 +35,6 @@ func TestEggsFalseSurvivesBsonRoundTrip(t *testing.T) {
 		t.Fatalf("the bottle was switched off but the doc says %v — omitempty ate the false", eggs["bottle"])
 	}
 
-	locs, ok := doc["catLocs"].(bson.M)
-	if !ok {
-		t.Fatalf("catLocs block missing from the persisted doc: %v", doc)
-	}
-	if false != locs["notes"] {
-		t.Fatalf("the cat was banned from notes but the doc says %v — omitempty ate the false", locs["notes"])
-	}
-
 	var back domain.SiteCopy
 	if err := bson.Unmarshal(raw, &back); nil != err {
 		t.Fatalf("unmarshal to SiteCopy failed: %v", err)
@@ -51,8 +42,53 @@ func TestEggsFalseSurvivesBsonRoundTrip(t *testing.T) {
 	if nil == back.Eggs || back.Eggs.Bottle || !back.Eggs.Cat {
 		t.Fatalf("eggs did not round-trip: %+v", back.Eggs)
 	}
-	if nil == back.CatLocs || back.CatLocs.Notes || !back.CatLocs.P404 {
-		t.Fatalf("catLocs did not round-trip: %+v", back.CatLocs)
+}
+
+// The cat catalog moved from a fixed struct to open maps, but the false-off
+// contract came with it — a spot switched off has to persist its false. A map
+// value dodges the omitempty-on-bool trap, but this guards it end to end.
+
+func TestCatMapFalseSurvivesBsonRoundTrip(t *testing.T) {
+	flags := domain.SiteCopy{
+		CatPages: map[string]bool{"hello": true, "notes": false},
+		CatSpots: map[string]bool{"hello.header": true, "notes.footer": false},
+	}
+
+	raw, err := bson.Marshal(flags)
+	if nil != err {
+		t.Fatalf("marshal failed: %v", err)
+	}
+
+	var doc bson.M
+	if err := bson.Unmarshal(raw, &doc); nil != err {
+		t.Fatalf("unmarshal to doc failed: %v", err)
+	}
+
+	pages, ok := doc["catPages"].(bson.M)
+	if !ok {
+		t.Fatalf("catPages block missing from the persisted doc: %v", doc)
+	}
+	if false != pages["notes"] {
+		t.Fatalf("the cat was banned from notes but the doc says %v — the false went missing", pages["notes"])
+	}
+
+	spots, ok := doc["catSpots"].(bson.M)
+	if !ok {
+		t.Fatalf("catSpots block missing from the persisted doc: %v", doc)
+	}
+	if false != spots["notes.footer"] {
+		t.Fatalf("the cat was banned from notes.footer but the doc says %v — the false went missing", spots["notes.footer"])
+	}
+
+	var back domain.SiteCopy
+	if err := bson.Unmarshal(raw, &back); nil != err {
+		t.Fatalf("unmarshal to SiteCopy failed: %v", err)
+	}
+	if back.CatPages["notes"] || !back.CatPages["hello"] {
+		t.Fatalf("catPages did not round-trip: %+v", back.CatPages)
+	}
+	if back.CatSpots["notes.footer"] || !back.CatSpots["hello.header"] {
+		t.Fatalf("catSpots did not round-trip: %+v", back.CatSpots)
 	}
 }
 
@@ -68,7 +104,7 @@ func TestLegacyDocRoundTripsWithoutEggBlocks(t *testing.T) {
 	if err := bson.Unmarshal(raw, &doc); nil != err {
 		t.Fatalf("unmarshal to doc failed: %v", err)
 	}
-	for _, key := range []string{"eggs", "catLocs", "bottleProverbs", "lighthouses"} {
+	for _, key := range []string{"eggs", "catPages", "catSpots", "bottleProverbs", "lighthouses"} {
 		if _, present := doc[key]; present {
 			t.Fatalf("legacy doc grew a %q block it never had: %v", key, doc)
 		}
@@ -78,8 +114,8 @@ func TestLegacyDocRoundTripsWithoutEggBlocks(t *testing.T) {
 	if err := bson.Unmarshal(raw, &back); nil != err {
 		t.Fatalf("unmarshal to SiteCopy failed: %v", err)
 	}
-	if nil != back.Eggs || nil != back.CatLocs {
-		t.Fatalf("legacy doc should load with nil egg config, got eggs=%+v catLocs=%+v", back.Eggs, back.CatLocs)
+	if nil != back.Eggs || nil != back.CatPages || nil != back.CatSpots {
+		t.Fatalf("legacy doc should load with nil egg config, got eggs=%+v catPages=%+v catSpots=%+v", back.Eggs, back.CatPages, back.CatSpots)
 	}
 }
 
