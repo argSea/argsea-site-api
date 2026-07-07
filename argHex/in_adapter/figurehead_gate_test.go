@@ -179,6 +179,34 @@ func TestFigureheadAdminFlowCreatePublishDelete(t *testing.T) {
 	}
 }
 
+func TestShapelessDraftSerializesShapesAsEmptyArray(t *testing.T) {
+	authService, _, router := newFigureheadRouter(t)
+	token := mintRoleToken(t, authService, in_port.PERM_ADMIN)
+
+	// a design with no shapes yet is legal; its shapes must come back as [],
+	// never null, from every handler that returns a design
+	rec := figureheadRequest(t, router, "POST", "/1/figurehead/designs", `{"pose":"lying","label":"bare"}`, token)
+
+	if http.StatusOK != rec.Code || !strings.Contains(rec.Body.String(), `"shapes":[]`) {
+		t.Fatalf("expected the created draft to carry \"shapes\":[], got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var created domain.CatDesign
+	json.Unmarshal(rec.Body.Bytes(), &created)
+
+	rec = figureheadRequest(t, router, "PUT", "/1/figurehead/designs/"+created.Id, `{"label":"still bare"}`, token)
+
+	if http.StatusOK != rec.Code || !strings.Contains(rec.Body.String(), `"shapes":[]`) {
+		t.Fatalf("expected the updated draft to carry \"shapes\":[], got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = figureheadRequest(t, router, "GET", "/1/figurehead/designs", "", token)
+
+	if strings.Contains(rec.Body.String(), `"shapes":null`) {
+		t.Fatalf("the wardrobe list leaked a null shapes array: %s", rec.Body.String())
+	}
+}
+
 func TestFigureheadSeedDeleteAndUpdateAre409(t *testing.T) {
 	authService, figureheads, router := newFigureheadRouter(t)
 	token := mintRoleToken(t, authService, in_port.PERM_ADMIN)

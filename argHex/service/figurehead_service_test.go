@@ -144,6 +144,24 @@ func TestPublishSwapsWithinPoseOnly(t *testing.T) {
 	}
 }
 
+func TestPublishedPicksTheNewerInTheCrashWindow(t *testing.T) {
+	repo := out_adapter.NewCatDesignFakeOutAdapter()
+	activity := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())
+	figureheads := service.NewFigureheadService(repo, activity)
+
+	// the crash window inside Publish: the new design is hoisted but the old
+	// one not yet lowered, so two published designs fly the same pose. The
+	// public read must settle on the newer stamp, deterministically.
+	olderID, _ := repo.Add(domain.CatDesign{Pose: domain.PoseLying, Label: "old coat", Published: true, UpdatedAt: "2026-01-01T00:00:00.000000000Z"})
+	newerID, _ := repo.Add(domain.CatDesign{Pose: domain.PoseLying, Label: "new coat", Published: true, UpdatedAt: "2026-02-01T00:00:00.000000000Z"})
+
+	current := publishedByPose(t, figureheads)
+
+	if 1 != len(current) || current[domain.PoseLying].Id != newerID {
+		t.Fatalf("expected the newer design %s on the bow, got %+v (older was %s)", newerID, current, olderID)
+	}
+}
+
 func TestDeleteGuardsPublishedAndSeeds(t *testing.T) {
 	figureheads, _ := newFigureheads(t)
 	current := publishedByPose(t, figureheads)

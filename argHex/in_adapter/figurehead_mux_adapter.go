@@ -40,6 +40,25 @@ func NewFigureheadMuxAdapter(figurehead in_port.FigureheadService, auth *WebAuth
 	return &a
 }
 
+// withShapes pins the contract that shapes is always an array: a shapeless
+// draft is legal, but its nil slice must serialize as [], not null — the same
+// rule the design lists already follow.
+func withShapes(design domain.CatDesign) domain.CatDesign {
+	if nil == design.Shapes {
+		design.Shapes = []domain.Shape{}
+	}
+
+	return design
+}
+
+func withShapesAll(designs domain.CatDesigns) domain.CatDesigns {
+	for i := range designs {
+		designs[i] = withShapes(designs[i])
+	}
+
+	return designs
+}
+
 // Published hands out the design on the bow for each pose — no auth, this is
 // what the site builds against.
 func (a figureheadMuxAdapter) Published(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +73,7 @@ func (a figureheadMuxAdapter) Published(w http.ResponseWriter, r *http.Request) 
 		designs = domain.CatDesigns{} // empty list must serialize as [], not null
 	}
 
-	writeJSON(w, http.StatusOK, designs)
+	writeJSON(w, http.StatusOK, withShapesAll(designs))
 }
 
 func (a figureheadMuxAdapter) List(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +92,7 @@ func (a figureheadMuxAdapter) List(w http.ResponseWriter, r *http.Request) {
 		designs = domain.CatDesigns{} // empty list must serialize as [], not null
 	}
 
-	writeJSON(w, http.StatusOK, designs)
+	writeJSON(w, http.StatusOK, withShapesAll(designs))
 }
 
 func (a figureheadMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +114,7 @@ func (a figureheadMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, saved)
+	writeJSON(w, http.StatusOK, withShapes(saved))
 }
 
 func (a figureheadMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
@@ -124,7 +143,7 @@ func (a figureheadMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, saved)
+	writeJSON(w, http.StatusOK, withShapes(saved))
 }
 
 // Delete refuses the undeletable with a 409: published designs and the seeded
@@ -161,5 +180,5 @@ func (a figureheadMuxAdapter) Publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, saved)
+	writeJSON(w, http.StatusOK, withShapes(saved))
 }

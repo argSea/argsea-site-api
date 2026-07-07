@@ -216,7 +216,6 @@ func main() {
 	if err := figureheadService.Seed(); nil != err {
 		// the API stays up without the seed (the shop endpoints still work);
 		// the next boot retries
-		fmt.Fprintf(os.Stderr, "error: figurehead seed failed: %v\n", err)
 		log.Printf("figurehead seed failed: %v\n", err)
 	}
 
