@@ -130,6 +130,7 @@ func main() {
 	revisionTable := "revisions"
 	lanternTable := "lantern"
 	mediaTable := "media"
+	catDesignTable := "catDesigns"
 
 	// routers
 	userRouter := router.PathPrefix("/1/user").Subrouter()
@@ -141,6 +142,7 @@ func main() {
 	activityRouter := router.PathPrefix("/1/activity").Subrouter()
 	authRouter := router.PathPrefix("/1/auth").Subrouter()
 	mediaRouter := router.PathPrefix("/1/media").Subrouter()
+	figureheadRouter := router.PathPrefix("/1/figurehead").Subrouter()
 
 	// the session cookie's domain is deploy-specific (prod vs a local vhost) —
 	// configurable, with the historical hardcoded value as the default
@@ -203,6 +205,22 @@ func main() {
 	mediaMordor := stores.NewMordor(mongo_db.DB.Collection(mediaTable), context.Background())
 	mediaService := service.NewMediaService(out_adapter.NewMediaWebstoreAdapter(save_path, web_path), out_adapter.NewMediaMetaMongoAdapter(mediaMordor), activityService)
 	in_adapter.NewMediaMuxAdapter(mediaService, webAuth, mediaRouter)
+
+	// the figurehead shop (cat designs) — the seed plants the shipped v1 cats
+	// into an empty collection so "go back to v1" is always possible; on every
+	// later boot it is a no-op
+	log.Println("Initializing figurehead")
+	catDesignMordor := stores.NewMordor(mongo_db.DB.Collection(catDesignTable), context.Background())
+	figureheadService := service.NewFigureheadService(out_adapter.NewCatDesignMongoAdapter(catDesignMordor), activityService)
+
+	if err := figureheadService.Seed(); nil != err {
+		// the API stays up without the seed (the shop endpoints still work);
+		// the next boot retries
+		fmt.Fprintf(os.Stderr, "error: figurehead seed failed: %v\n", err)
+		log.Printf("figurehead seed failed: %v\n", err)
+	}
+
+	in_adapter.NewFigureheadMuxAdapter(figureheadService, webAuth, figureheadRouter)
 
 	// users — kept (auth depends on it)
 	log.Println("Initializing user")
