@@ -131,6 +131,7 @@ func main() {
 	lanternTable := "lantern"
 	mediaTable := "media"
 	catDesignTable := "catDesigns"
+	doodleTable := "doodles"
 
 	// routers
 	userRouter := router.PathPrefix("/1/user").Subrouter()
@@ -143,6 +144,7 @@ func main() {
 	authRouter := router.PathPrefix("/1/auth").Subrouter()
 	mediaRouter := router.PathPrefix("/1/media").Subrouter()
 	figureheadRouter := router.PathPrefix("/1/figurehead").Subrouter()
+	doodleRouter := router.PathPrefix("/1/doodle").Subrouter()
 
 	// the session cookie's domain is deploy-specific (prod vs a local vhost) —
 	// configurable, with the historical hardcoded value as the default
@@ -220,6 +222,13 @@ func main() {
 	}
 
 	in_adapter.NewFigureheadMuxAdapter(figureheadService, webAuth, figureheadRouter)
+
+	// doodles (marginalia sketches for the Keeper's Journal) — structured
+	// shapes only, no publish/seed/pose lifecycle
+	log.Println("Initializing doodle")
+	doodleMordor := stores.NewMordor(mongo_db.DB.Collection(doodleTable), context.Background())
+	doodleService := service.NewDoodleService(out_adapter.NewDoodleMongoAdapter(doodleMordor), activityService)
+	in_adapter.NewDoodleMuxAdapter(doodleService, webAuth, doodleRouter)
 
 	// users — kept (auth depends on it)
 	log.Println("Initializing user")

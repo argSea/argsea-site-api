@@ -19,4 +19,5 @@ const (
 	EntityLantern    = "lantern"
 	EntityMedia      = "media"
 	EntityFigurehead = "figurehead"
+	EntityDoodle     = "doodle"
 )
