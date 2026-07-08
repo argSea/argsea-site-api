@@ -17,7 +17,7 @@ type figureheadMuxAdapter struct {
 }
 
 // NewFigureheadMuxAdapter wires the Figurehead Shop routes. The published read
-// is public — the site build consumes it anonymously; everything else is
+// is public: the site build consumes it anonymously; everything else is
 // admin-only like the rest of the content mutations.
 func NewFigureheadMuxAdapter(figurehead in_port.FigureheadService, auth *WebAuth, router *mux.Router) *figureheadMuxAdapter {
 	a := figureheadMuxAdapter{
@@ -41,7 +41,7 @@ func NewFigureheadMuxAdapter(figurehead in_port.FigureheadService, auth *WebAuth
 }
 
 // withShapes pins the contract that shapes is always an array: a shapeless
-// draft is legal, but its nil slice must serialize as [], not null — the same
+// draft is legal, but its nil slice must serialize as [], not null; the same
 // rule the design lists already follow.
 func withShapes(design domain.CatDesign) domain.CatDesign {
 	if nil == design.Shapes {
@@ -59,7 +59,7 @@ func withShapesAll(designs domain.CatDesigns) domain.CatDesigns {
 	return designs
 }
 
-// Published hands out the design on the bow for each pose — no auth, this is
+// Published hands out the design on the bow for each pose; no auth, this is
 // what the site builds against.
 func (a figureheadMuxAdapter) Published(w http.ResponseWriter, r *http.Request) {
 	designs, err := a.figurehead.Published()

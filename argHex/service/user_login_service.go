@@ -42,7 +42,7 @@ func (u userLoginService) Login(user domain.User) (domain.User, error) {
 }
 
 func (u userLoginService) Signup(user domain.User) (string, error) {
-	// a signup can never carry a role — admin is granted only by a direct DB
+	// a signup can never carry a role; admin is granted only by a direct DB
 	// update on the user document
 	user.Role = ""
 

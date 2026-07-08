@@ -54,7 +54,7 @@ func (l lanternFSReleaseAdapter) Stage(distDir string) (string, error) {
 
 // Swap re-points the live link at generationDir atomically: a temp symlink is
 // renamed over the live one, so readers always see either the old target or
-// the new — never a missing link. A failure leaves the previous target live.
+// the new, never a missing link. A failure leaves the previous target live.
 func (l lanternFSReleaseAdapter) Swap(generationDir string) error {
 	temp := l.liveLink + ".next"
 
@@ -75,7 +75,7 @@ func (l lanternFSReleaseAdapter) Previous() (string, error) {
 	current, err := os.Readlink(l.liveLink)
 
 	if nil != err {
-		// no live link yet means nothing to roll back from — not an error
+		// no live link yet means nothing to roll back from; not an error
 		if errors.Is(err, fs.ErrNotExist) {
 			return "", nil
 		}
@@ -123,7 +123,7 @@ func (l lanternFSReleaseAdapter) Prune(keep int) error {
 		return err
 	}
 
-	// empty when the live link doesn't exist yet — then nothing is protected
+	// empty when the live link doesn't exist yet; then nothing is protected
 	current, _ := os.Readlink(l.liveLink)
 	current = filepath.Clean(current)
 

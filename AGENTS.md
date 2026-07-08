@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Purpose
-The argSea portfolio/blog backend API — a Go HTTP service exposing portfolio and
+The argSea portfolio/blog backend API: a Go HTTP service exposing portfolio and
 blog resources. It owns the API surface and its persistence; it is not the
 frontend/site and does not own deployment infrastructure.
 
@@ -37,19 +37,19 @@ Read narrowly. Do not wander the repo.
 - Plain English in responses and session notes.
 - This is a hexagonal (ports/adapters) codebase: a new capability adds an
   interface in the relevant `*_port` package and an implementation in the
-  matching `*_adapter` package — don't collapse the two.
+  matching `*_adapter` package; don't collapse the two.
 - `config.json` is local-only (gitignored). Never commit it or secrets.
 
 ## Repo Map
-- `main.go` — entrypoint: parses `--config`/`--log`, wires adapters→services→
+- `main.go` (entrypoint): parses `--config`/`--log`, wires adapters→services→
   routes (gorilla/mux, viper for config).
-- `argHex/` — the hexagon:
-  - `domain/`, `data_objects/` — core types and DTOs.
-  - `in_port/`, `in_adapter/` — inbound interfaces and their HTTP handlers.
-  - `out_port/`, `out_adapter/` — outbound interfaces and their implementations.
-  - `service/` — application/business logic.
-  - `stores/` — persistence wiring.
-  - `utility/` — shared helpers.
+- `argHex/` (the hexagon):
+  - `domain/`, `data_objects/`: core types and DTOs.
+  - `in_port/`, `in_adapter/`: inbound interfaces and their HTTP handlers.
+  - `out_port/`, `out_adapter/`: outbound interfaces and their implementations.
+  - `service/`: application/business logic.
+  - `stores/`: persistence wiring.
+  - `utility/`: shared helpers.
 
 ## Architecture Defaults
 Ports & adapters. Dependencies point inward: adapters depend on ports, services
@@ -57,10 +57,10 @@ depend on ports, never the reverse. Keep HTTP/transport concerns in adapters.
 
 ## Verification Rules
 For touched behavior, run the smallest useful check for the changed surface:
-- `go build ./...` — compiles the module.
-- `go vet ./...` — static checks.
-- `go test ./...` — tests (add coverage for changed behavior).
-- `gofmt -l .` — formatting (should print nothing).
+- `go build ./...`: compiles the module.
+- `go vet ./...`: static checks.
+- `go test ./...`: tests (add coverage for changed behavior).
+- `gofmt -l .`: formatting (should print nothing).
 If an expected command doesn't exist, say so. Don't claim a run you didn't do.
 
 ## Session Discipline

@@ -43,13 +43,13 @@ func NewUserMuxAdapter(u in_port.UserCRUDService, m in_port.MediaService, auth *
 	router.HandleFunc("/{id}/", adapter.Update).Methods("PUT")
 	router.HandleFunc("/{id}/", adapter.Delete).Methods("DELETE")
 
-	// public keeper profile — the one unauthenticated user read; the site build
+	// public keeper profile: the one unauthenticated user read; the site build
 	// and the admin greeting both consume it
 	router.HandleFunc("/{id}/profile", adapter.Profile).Methods("GET")
 	router.HandleFunc("/{id}/profile/", adapter.Profile).Methods("GET")
 }
 
-// Profile serves the bare public keeper subset — the nine profile fields only,
+// Profile serves the bare public keeper subset: the nine profile fields only,
 // never username, password, or role. Unknown users 404.
 func (u userMuxAdapter) Profile(w http.ResponseWriter, r *http.Request) {
 	user_data := u.user.Read(mux.Vars(r)["id"])
@@ -77,7 +77,7 @@ func (u userMuxAdapter) GetAll(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// the full user documents are keeper-only — the public read is /profile
+	// the full user documents are keeper-only; the public read is /profile
 	if !requireAuth(u.auth, w, r) {
 		return
 	}
@@ -172,7 +172,7 @@ func (u userMuxAdapter) Create(w http.ResponseWriter, r *http.Request) {
 	var user domain.User
 	json.NewDecoder(r.Body).Decode(&user)
 
-	// role never comes from the request body — admin is granted only by a
+	// role never comes from the request body; admin is granted only by a
 	// direct DB update
 	user.Role = ""
 
@@ -216,7 +216,7 @@ func (u userMuxAdapter) Get(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// the full user document stays gated — anonymous callers get the bare
+	// the full user document stays gated; anonymous callers get the bare
 	// profile subset through /profile, never userName or role
 	if !requireAuth(u.auth, w, r) {
 		return
@@ -303,7 +303,7 @@ func (u userMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 	// update leaves the stored role untouched, so a PUT cannot self-grant admin
 	user.Role = ""
 
-	// a valid token alone is not enough — it must belong to the user being
+	// a valid token alone is not enough; it must belong to the user being
 	// rewritten, or carry the admin role
 	if !requireSelfOrAdmin(u.auth, w, r, id) {
 		return

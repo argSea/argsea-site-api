@@ -1,6 +1,6 @@
 package domain
 
-// SiteCopy is the "signal flags" singleton — the little lines of copy that fly
+// SiteCopy is the "signal flags" singleton: the little lines of copy that fly
 // over every page. There is exactly one document; it is upserted, never listed.
 type SiteCopy struct {
 	Id             string          `json:"id" bson:"_id,omitempty"`
@@ -23,7 +23,7 @@ type SiteCopy struct {
 
 // Eggs are the master switches for the easter eggs. The struct is a pointer on
 // SiteCopy so legacy docs round-trip without it; consumers treat a missing
-// block as everything-on. The bools deliberately skip omitempty — dropping a
+// block as everything-on. The bools deliberately skip omitempty; dropping a
 // false would resurrect a switched-off egg on the next Save (see Hobby.Active).
 type Eggs struct {
 	Bottle bool `json:"bottle" bson:"bottle"`
@@ -37,7 +37,7 @@ type Eggs struct {
 // site/admin catalog, not here. The absent-means-on contract lives in the
 // consumers; the API stores whatever it is handed. Bools inside a map serialize
 // their false fine, so the omitempty-on-bool trap that bites Eggs can't reach
-// them — the field-level omitempty only drops an empty or nil map.
+// them; the field-level omitempty only drops an empty or nil map.
 
 // Lighthouse is one entry in the light list: a real light, its coordinates
 // (the 404 wreck's "last position"), and the line it introduces itself with.

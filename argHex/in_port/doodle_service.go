@@ -2,7 +2,7 @@ package in_port
 
 import "github.com/argSea/argsea-site-api/argHex/domain"
 
-// DoodleService is CRUD over the marginalia doodles — no publish/seed/pose
+// DoodleService is CRUD over the marginalia doodles; no publish/seed/pose
 // lifecycle, just structured shapes in and out.
 type DoodleService interface {
 	List() (domain.Doodles, error)

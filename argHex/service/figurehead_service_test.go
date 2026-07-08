@@ -87,7 +87,7 @@ func TestSeedLeavesANonEmptyCollectionAlone(t *testing.T) {
 	activity := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())
 	figureheads := service.NewFigureheadService(out_adapter.NewCatDesignFakeOutAdapter(), activity)
 
-	// a lone draft in the collection means a keeper has been here — anything
+	// a lone draft in the collection means a keeper has been here; anything
 	// present at all suppresses the seed, not just a full wardrobe
 	if _, err := figureheads.Create(domain.CatDesign{Pose: domain.PosePerched, Label: "hand-carved"}); nil != err {
 		t.Fatalf("create failed: %v", err)
@@ -166,7 +166,7 @@ func TestDeleteGuardsPublishedAndSeeds(t *testing.T) {
 	figureheads, _ := newFigureheads(t)
 	current := publishedByPose(t, figureheads)
 
-	// the published seed trips the seed guard first — permanent is permanent
+	// the published seed trips the seed guard first; permanent is permanent
 	if err := figureheads.Delete(current[domain.PosePerched].Id); !errors.Is(err, in_port.ErrDesignSeeded) {
 		t.Fatalf("expected the seed guard, got %v", err)
 	}
@@ -179,7 +179,7 @@ func TestDeleteGuardsPublishedAndSeeds(t *testing.T) {
 		t.Fatalf("expected the published guard, got %v", err)
 	}
 
-	// a superseded seed stays undeletable — that is the whole point of seeding
+	// a superseded seed stays undeletable; that is the whole point of seeding
 	supersededSeed := current[domain.PosePerched].Id
 
 	if err := figureheads.Delete(supersededSeed); !errors.Is(err, in_port.ErrDesignSeeded) {

@@ -4,7 +4,7 @@ type Revisions []Revision
 
 // Revision is one printing in a document's append-only history. Snapshot holds
 // the full document as a JSON string at the moment it was recorded. Exactly one
-// revision per entity carries IsCurrent — that flag is the "current pointer".
+// revision per entity carries IsCurrent; that flag is the "current pointer".
 // A rollback copies an older snapshot forward as a new current revision, so the
 // pointer move is itself an auditable entry in the log.
 type Revision struct {

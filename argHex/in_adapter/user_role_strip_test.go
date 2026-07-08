@@ -16,7 +16,7 @@ import (
 )
 
 // newUserRouter mounts the real user adapter over the capturing stub repo, so
-// the role-stripping is exercised at the HTTP seam — body in, repo call out.
+// the role-stripping is exercised at the HTTP seam: body in, repo call out.
 func newUserRouter(t *testing.T) (*stubUserRepo, in_port.AuthService, *mux.Router) {
 	t.Helper()
 
@@ -95,7 +95,7 @@ func TestUserUpdateCannotSelfGrantAdmin(t *testing.T) {
 
 	// the second half of the contract: with the role empty, its bson-omitempty
 	// tag drops the key entirely, so the mongo adapter's $set update leaves the
-	// stored role untouched — a PUT can never self-grant admin
+	// stored role untouched; a PUT can never self-grant admin
 	raw, err := bson.Marshal(*repo.updated)
 
 	if nil != err {

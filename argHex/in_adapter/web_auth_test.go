@@ -91,7 +91,7 @@ func TestSessionCookieAuthorizes(t *testing.T) {
 func TestCookieDomainIsConfigurable(t *testing.T) {
 	authService := service.NewJWTAuthService(testSecret)
 
-	// the domain baked into the session cookie comes from the constructor —
+	// the domain baked into the session cookie comes from the constructor;
 	// main.go feeds it auth.cookie_domain from the config
 	webAuth := in_adapter.NewWebAuth(authService, testSecret, "cookies.example")
 

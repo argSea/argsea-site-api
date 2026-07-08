@@ -53,7 +53,7 @@ func (d doodleService) Create(doodle domain.Doodle) (domain.Doodle, error) {
 	return saved, nil
 }
 
-// Update is a full replace preserving createdAt — the same shape as the
+// Update is a full replace preserving createdAt; the same shape as the
 // figurehead edit path, minus the lifecycle fields doodles don't have.
 func (d doodleService) Update(doodle domain.Doodle) (domain.Doodle, error) {
 	existing := d.repo.Get(doodle.Id)

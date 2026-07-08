@@ -7,14 +7,14 @@ import (
 )
 
 // ErrDesignPublished is returned by Delete for a design that is currently on
-// the bow — the adapter maps it to a 409. Publish another design for the pose
+// the bow; the adapter maps it to a 409. Publish another design for the pose
 // first; a published cat is superseded, never torn off.
-var ErrDesignPublished = errors.New("a published design cannot be deleted — publish another design for its pose first")
+var ErrDesignPublished = errors.New("a published design cannot be deleted; publish another design for its pose first")
 
-// ErrDesignSeeded is returned by Delete and Update for the seeded v1 designs —
+// ErrDesignSeeded is returned by Delete and Update for the seeded v1 designs;
 // the adapter maps it to a 409. The v1 cats are permanent so "go back to v1"
 // is always possible; supersede them by publishing something else.
-var ErrDesignSeeded = errors.New("the seeded v1 designs are permanent — supersede them by publishing another design")
+var ErrDesignSeeded = errors.New("the seeded v1 designs are permanent; supersede them by publishing another design")
 
 // FigureheadService is the Figurehead Shop counter: CRUD over the cat designs
 // plus the one-published-per-pose Publish swap. Published is the public read

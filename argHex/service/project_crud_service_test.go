@@ -212,7 +212,7 @@ func TestUpdateClearsEmptiedFields(t *testing.T) {
 
 	saved, _ := projects.Create(domain.Project{Title: "Keep", Moral: "a moral", Tags: []string{"one", "two"}})
 
-	// an update that empties moral and tags must actually clear them —
+	// an update that empties moral and tags must actually clear them;
 	// replace semantics, not a $set merge
 	cleared, err := projects.Update(domain.Project{Id: saved.Id, Title: "Keep"})
 
@@ -228,7 +228,7 @@ func TestUpdateClearsEmptiedFields(t *testing.T) {
 func TestRestoreClearsFieldsEmptyInSnapshot(t *testing.T) {
 	projects := newProjects()
 
-	// rev 1: moral empty — rev 2: moral filled
+	// rev 1: moral empty; rev 2: moral filled
 	saved, _ := projects.Create(domain.Project{Title: "Original"})
 	projects.Update(domain.Project{Id: saved.Id, Title: "Original", Moral: "added later"})
 
@@ -296,7 +296,7 @@ func TestValidStampAcceptedOnCreateAndUpdate(t *testing.T) {
 func TestStampRejectsOutOfSetEnumValues(t *testing.T) {
 	projects := newProjects()
 
-	// each enum field in turn, mutated to a value outside its set — uppercase
+	// each enum field in turn, mutated to a value outside its set; uppercase
 	// ink included, because the contract is exact lowercase strings
 	cases := map[string]func(s *domain.Stamp){
 		"shape": func(s *domain.Stamp) { s.Shape = "triangle" },
@@ -385,7 +385,7 @@ func TestStampTextLengthCap(t *testing.T) {
 func TestStampTextIsTrimmedOnStore(t *testing.T) {
 	projects := newProjects()
 
-	// the store holds exactly what was validated — no surrounding padding
+	// the store holds exactly what was validated; no surrounding padding
 	saved, err := projects.Create(domain.Project{Title: "Trim", Stamp: textStamp("  AIR MAIL  ")})
 
 	if nil != err {
@@ -402,7 +402,7 @@ func TestStampTextIsTrimmedOnStore(t *testing.T) {
 func TestStampCentsRequiresRectShape(t *testing.T) {
 	projects := newProjects()
 
-	// a pattern-valid denomination on a circle stamp is still rejected —
+	// a pattern-valid denomination on a circle stamp is still rejected;
 	// cents is coupled to the rect shape
 	stamp := validStamp()
 	stamp.Shape = "circle"
@@ -423,7 +423,7 @@ func TestStampTextCoupledToTextMotif(t *testing.T) {
 		t.Fatalf("expected text on a non-text motif rejected")
 	}
 
-	// and the text motif without words is meaningless — required then
+	// and the text motif without words is meaningless; required then
 	for _, empty := range []string{"", "   "} {
 		if _, err := projects.Create(domain.Project{Title: "Wordless", Stamp: textStamp(empty)}); nil == err {
 			t.Fatalf("expected an empty text (%q) on the text motif rejected", empty)
@@ -434,7 +434,7 @@ func TestStampTextCoupledToTextMotif(t *testing.T) {
 func TestAbsentStampIsValid(t *testing.T) {
 	projects := newProjects()
 
-	// no stamp at all is the valid default state — the site falls back to its
+	// no stamp at all is the valid default state; the site falls back to its
 	// default decoration
 	saved, err := projects.Create(domain.Project{Title: "Unstamped"})
 
@@ -450,7 +450,7 @@ func TestAbsentStampIsValid(t *testing.T) {
 func TestStampRoundTripsThroughSnapshotRestore(t *testing.T) {
 	projects := newProjects()
 
-	// rev 1: lighthouse rect — rev 2: text circle
+	// rev 1: lighthouse rect; rev 2: text circle
 	saved, _ := projects.Create(domain.Project{Title: "Round trip", Stamp: validStamp()})
 	projects.Update(domain.Project{
 		Id:    saved.Id,

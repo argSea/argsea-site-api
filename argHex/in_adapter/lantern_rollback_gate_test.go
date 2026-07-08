@@ -87,7 +87,7 @@ func TestRollbackWithoutPreviousBuildIs409(t *testing.T) {
 		t.Fatalf("expected 409 with no previous build, got %d", rec.Code)
 	}
 
-	// both 409 shapes carry the LanternStatus body, mirroring hoist — here the
+	// both 409 shapes carry the LanternStatus body, mirroring hoist; here the
 	// state is idle, which is how the admin tells "nothing kept" from "in flight"
 	var status domain.LanternStatus
 	json.Unmarshal(rec.Body.Bytes(), &status)

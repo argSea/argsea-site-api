@@ -180,7 +180,7 @@ func (a authMuxAdapter) Validate(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// pull the token off the request — session cookie or bearer header, the
+	// pull the token off the request; session cookie or bearer header, the
 	// same extraction every other adapter uses
 	token := a.webAuth.Token(r)
 
@@ -237,7 +237,7 @@ func (a authMuxAdapter) Validate(w http.ResponseWriter, r *http.Request) {
 func (a authMuxAdapter) setSession(user domain.User, w http.ResponseWriter, r *http.Request) (string, error) {
 	expires := time.Now().Add(time.Hour * 24)
 
-	// mint the role stored on the user document — the doc is trustworthy because
+	// mint the role stored on the user document; the doc is trustworthy because
 	// role never enters through a request body, only a direct DB update
 	role := in_port.PERM_USER
 

@@ -43,7 +43,7 @@ func newIdentityRouter(t *testing.T, stored domain.User) (*stubUserRepo, in_port
 }
 
 func TestUserWriteIdentityMatrix(t *testing.T) {
-	// self ok, another user's document 403, admin anywhere ok, anonymous 401 —
+	// self ok, another user's document 403, admin anywhere ok, anonymous 401;
 	// for both PUT and DELETE
 	cases := []struct {
 		name   string
@@ -96,7 +96,7 @@ func TestUserReadsAreAuthGated(t *testing.T) {
 	_, authService, router := newIdentityRouter(t, domain.User{Id: "keeper", UserName: "meo"})
 	token := mintRoleToken(t, authService, in_port.PERM_USER)
 
-	// the full user documents never leave without a token — only /profile is
+	// the full user documents never leave without a token; only /profile is
 	// public; any valid token (self or not) may read
 	cases := []string{"/1/user", "/1/user/", "/1/user/keeper"}
 
@@ -123,7 +123,7 @@ func TestUserPutPersistsClearedProfileFields(t *testing.T) {
 
 	token := mintRoleToken(t, authService, in_port.PERM_ADMIN)
 
-	// pronouns emptied explicitly, linkedin omitted entirely — both are clears
+	// pronouns emptied explicitly, linkedin omitted entirely; both are clears
 	// under the PUT's full-replace shape for profile fields
 	rec := userRequest(t, router, "PUT", "/1/user/keeper", token, `{"userName":"meo","name":"Justin","pronouns":""}`)
 
@@ -132,7 +132,7 @@ func TestUserPutPersistsClearedProfileFields(t *testing.T) {
 	}
 
 	// the profile keys have no bson omitempty, so the $set document must carry
-	// them even when empty — that is what makes the clear persist in mongo
+	// them even when empty; that is what makes the clear persist in mongo
 	raw, err := bson.Marshal(*repo.updated)
 
 	if nil != err {
@@ -171,7 +171,7 @@ func TestUserProfilePictureRejectsSvg(t *testing.T) {
 	repo, authService, router := newIdentityRouter(t, domain.User{Id: "keeper", UserName: "meo"})
 
 	// a non-admin can self-PUT, and the picture is served static from
-	// /media/images/ on the PUBLIC profile page — so a data:image/svg+xml
+	// /media/images/ on the PUBLIC profile page; so a data:image/svg+xml
 	// picture is the reachable svg-execution hole and must be refused
 	token := mintRoleToken(t, authService, in_port.PERM_USER)
 
@@ -201,10 +201,10 @@ func TestUserProfileIsPublicAndBare(t *testing.T) {
 		Email:    "keeper@argsea.com",
 		Github:   "argSea",
 		Linkedin: "in/argsea",
-		Signoff:  "— J",
+		Signoff:  "- J",
 	})
 
-	// no token at all — the profile read is the one public user endpoint
+	// no token at all; the profile read is the one public user endpoint
 	rec := userRequest(t, router, "GET", "/1/user/keeper/profile", "", "")
 
 	if http.StatusOK != rec.Code {
@@ -217,7 +217,7 @@ func TestUserProfileIsPublicAndBare(t *testing.T) {
 		t.Fatalf("could not parse the profile: %v", err)
 	}
 
-	// exactly the nine profile fields — credentials and role must never leak
+	// exactly the nine profile fields; credentials and role must never leak
 	if 9 != len(payload) {
 		t.Fatalf("expected exactly 9 profile fields, got %d: %+v", len(payload), payload)
 	}

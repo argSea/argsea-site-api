@@ -2,7 +2,7 @@ package out_port
 
 import "time"
 
-// BuildRunner executes the site build. argv is an argv array — implementations
+// BuildRunner executes the site build. argv is an argv array; implementations
 // must never hand it to a shell. env is KEY=VALUE entries merged over the
 // inherited process environment (entries rather than a map: the config loader
 // lowercases map keys, which would corrupt names like ARGSEA_API_URL). The

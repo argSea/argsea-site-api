@@ -39,7 +39,7 @@ func TestSnapshotMovesCurrentPointer(t *testing.T) {
 		t.Fatalf("expected 3 revisions, got %d", len(all))
 	}
 
-	// exactly one revision may be current — the pointer moved to the newest
+	// exactly one revision may be current; the pointer moved to the newest
 	if 1 != countCurrent(all) {
 		t.Fatalf("expected exactly 1 current revision, got %d", countCurrent(all))
 	}

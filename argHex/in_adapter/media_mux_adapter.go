@@ -11,7 +11,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// mediaUploadMaxBytes caps a multipart upload — photographs, not archives.
+// mediaUploadMaxBytes caps a multipart upload; photographs, not archives.
 const mediaUploadMaxBytes = 32 << 20
 
 type mediaMuxAdapter struct {
@@ -19,7 +19,7 @@ type mediaMuxAdapter struct {
 	auth  *WebAuth
 }
 
-// NewMediaMuxAdapter wires the darkroom routes. Every route is authed — the
+// NewMediaMuxAdapter wires the darkroom routes. Every route is authed; the
 // site consumes media files straight from disk, never through this API.
 func NewMediaMuxAdapter(media in_port.MediaService, auth *WebAuth, router *mux.Router) *mediaMuxAdapter {
 	a := mediaMuxAdapter{

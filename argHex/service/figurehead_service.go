@@ -23,7 +23,7 @@ func NewFigureheadService(repo out_port.CatDesignRepo, activity in_port.Activity
 
 // Published returns the design on the bow for each pose. It tolerates the
 // crash window inside Publish (two published for one pose, never zero) by
-// picking the most recently updated — the fixed-width stamp makes the string
+// picking the most recently updated; the fixed-width stamp makes the string
 // compare chronological.
 func (f figureheadService) Published() (domain.CatDesigns, error) {
 	designs, err := f.repo.List()
@@ -87,7 +87,7 @@ func (f figureheadService) Create(design domain.CatDesign) (domain.CatDesign, er
 	return saved, nil
 }
 
-// Update writes new label/viewBox/shapes but leaves the lifecycle alone —
+// Update writes new label/viewBox/shapes but leaves the lifecycle alone;
 // published only moves through Publish, and a design never changes stance
 // after it is carved. The seeded v1s are immutable outright: an editable seed
 // would defeat the always-a-v1-to-go-back-to guarantee.
@@ -150,7 +150,7 @@ func (f figureheadService) Delete(id string) error {
 
 // Publish hoists the design as its pose's cat and lowers whatever flew there
 // before. Hoist first, lower after: a crash between the writes leaves the pose
-// with two published designs (Published picks the newer) rather than none —
+// with two published designs (Published picks the newer) rather than none;
 // the site must never build without a cat.
 func (f figureheadService) Publish(id string) (domain.CatDesign, error) {
 	design := f.repo.Get(id)
@@ -192,7 +192,7 @@ func (f figureheadService) Publish(id string) (domain.CatDesign, error) {
 }
 
 // Seed plants the two shipped v1 cats into an empty collection, published, at
-// boot. Anything already in the collection means a keeper has been here — the
+// boot. Anything already in the collection means a keeper has been here; the
 // seed never runs twice and never touches existing designs.
 func (f figureheadService) Seed() error {
 	existing, err := f.repo.List()
@@ -227,7 +227,7 @@ func (f figureheadService) Seed() error {
 
 // validateDesign is the vocabulary gate: pose and shape type are closed enums
 // so the renderers only ever meet primitives they know. Role is deliberately
-// not validated — the contract stores it opaquely.
+// not validated; the contract stores it opaquely.
 func validateDesign(design domain.CatDesign) error {
 	if domain.PosePerched != design.Pose && domain.PoseLying != design.Pose {
 		return errors.New("pose must be perched or lying")

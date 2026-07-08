@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// loadLanternConfig mirrors main.go's wiring exactly — same keys, same viper
-// getters — over a real config file, so this test exercises the actual
+// loadLanternConfig mirrors main.go's wiring exactly: same keys, same viper
+// getters, over a real config file, so this test exercises the actual
 // config-load path the server uses. (It can't live in package main: main's
 // init() exits without --config/--log flags, which a test binary never has.)
 func loadLanternConfig(t *testing.T, configJSON string) service.LanternConfig {

@@ -1,6 +1,6 @@
 package domain
 
-// Content lifecycle status. Archived is schema-only for now — no transition
+// Content lifecycle status. Archived is schema-only for now; no transition
 // wires to it yet, but published/read filtering already understands it.
 const (
 	StatusDraft     = "draft"
