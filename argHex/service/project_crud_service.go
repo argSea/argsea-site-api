@@ -28,7 +28,7 @@ var stampInks = map[string]bool{"#f0d9a8": true, "#93a0e8": true}
 var stampCents = regexp.MustCompile(`^[0-9]{1,2}¢$`)
 
 // validateStamp normalizes a stamp in place and checks it against the closed
-// vocabulary. A nil stamp is valid — the site falls back to its default
+// vocabulary. A nil stamp is valid; the site falls back to its default
 // decoration. Cents is coupled to the rect shape and text to the text motif
 // (operator ruling 2026-07-04): a stray field on the wrong variant is rejected
 // rather than silently stored unrendered.
@@ -117,14 +117,14 @@ func (p projectCRUDService) Read(id string) domain.Project {
 }
 
 func (p projectCRUDService) Create(project domain.Project) (domain.Project, error) {
-	// an invalid stamp never reaches the store — reject before anything is written
+	// an invalid stamp never reaches the store; reject before anything is written
 	if err := validateStamp(project.Stamp); nil != err {
 		return domain.Project{}, err
 	}
 
 	now := nowStamp()
 
-	// body is rich text — it lives in the store already sanitized
+	// body is rich text; it lives in the store already sanitized
 	project.Id = ""
 	project.Body = utility.SanitizeHTML(project.Body)
 
@@ -167,7 +167,7 @@ func (p projectCRUDService) Create(project domain.Project) (domain.Project, erro
 	return saved, nil
 }
 
-// Update writes new content but leaves the publication lifecycle alone — status
+// Update writes new content but leaves the publication lifecycle alone; status
 // and published_at only move through Publish/Unpublish, so an edit never
 // silently publishes a draft. Every edit snapshots the full document.
 func (p projectCRUDService) Update(project domain.Project) (domain.Project, error) {
@@ -177,7 +177,7 @@ func (p projectCRUDService) Update(project domain.Project) (domain.Project, erro
 		return domain.Project{}, errors.New("project not found")
 	}
 
-	// an invalid stamp never reaches the store — reject before anything is written
+	// an invalid stamp never reaches the store; reject before anything is written
 	if err := validateStamp(project.Stamp); nil != err {
 		return domain.Project{}, err
 	}
@@ -258,7 +258,7 @@ func (p projectCRUDService) Unpublish(id string) (domain.Project, error) {
 }
 
 // Reorder moves the postcard to a new rack position. Lifecycle-style like
-// Publish: activity-logged but never snapshotted — reordering the rack must
+// Publish: activity-logged but never snapshotted; reordering the rack must
 // not spam the revision history.
 func (p projectCRUDService) Reorder(id string, order int) (domain.Project, error) {
 	project := p.repo.Get(id)
@@ -279,7 +279,7 @@ func (p projectCRUDService) Reorder(id string, order int) (domain.Project, error
 	return p.repo.Get(id), nil
 }
 
-// Feature puts the postcard on the mantel. No cap here — the admin enforces
+// Feature puts the postcard on the mantel. No cap here; the admin enforces
 // the mantel-fits-three rule; no snapshot either, same as Reorder.
 func (p projectCRUDService) Feature(id string) (domain.Project, error) {
 	return p.setFeatured(id, true, "featured")
@@ -311,7 +311,7 @@ func (p projectCRUDService) setFeatured(id string, featured bool, verb string) (
 
 // nextOrder places a new postcard after everything already on the rack:
 // max(order)+1 across all projects, published or not. A failed list fails the
-// create — silently defaulting would collide at the front of the rack.
+// create; silently defaulting would collide at the front of the rack.
 func (p projectCRUDService) nextOrder() (int, error) {
 	projects, err := p.repo.List(false, 0)
 
@@ -368,7 +368,7 @@ func (p projectCRUDService) Restore(id string, revisionID string) (domain.Projec
 }
 
 // snapshot marshals the full document and records it as the new current
-// revision. A failed snapshot fails the write — history must not silently
+// revision. A failed snapshot fails the write; history must not silently
 // diverge from the live document.
 func (p projectCRUDService) snapshot(project domain.Project, verb string) error {
 	data, err := json.Marshal(project)

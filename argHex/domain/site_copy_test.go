@@ -32,7 +32,7 @@ func TestEggsFalseSurvivesBsonRoundTrip(t *testing.T) {
 		t.Fatalf("eggs block missing from the persisted doc: %v", doc)
 	}
 	if false != eggs["bottle"] {
-		t.Fatalf("the bottle was switched off but the doc says %v — omitempty ate the false", eggs["bottle"])
+		t.Fatalf("the bottle was switched off but the doc says %v: omitempty ate the false", eggs["bottle"])
 	}
 
 	var back domain.SiteCopy
@@ -45,7 +45,7 @@ func TestEggsFalseSurvivesBsonRoundTrip(t *testing.T) {
 }
 
 // The cat catalog moved from a fixed struct to open maps, but the false-off
-// contract came with it — a spot switched off has to persist its false. A map
+// contract came with it; a spot switched off has to persist its false. A map
 // value dodges the omitempty-on-bool trap, but this guards it end to end.
 
 func TestCatMapFalseSurvivesBsonRoundTrip(t *testing.T) {
@@ -69,7 +69,7 @@ func TestCatMapFalseSurvivesBsonRoundTrip(t *testing.T) {
 		t.Fatalf("catPages block missing from the persisted doc: %v", doc)
 	}
 	if false != pages["notes"] {
-		t.Fatalf("the cat was banned from notes but the doc says %v — the false went missing", pages["notes"])
+		t.Fatalf("the cat was banned from notes but the doc says %v: the false went missing", pages["notes"])
 	}
 
 	spots, ok := doc["catSpots"].(bson.M)
@@ -77,7 +77,7 @@ func TestCatMapFalseSurvivesBsonRoundTrip(t *testing.T) {
 		t.Fatalf("catSpots block missing from the persisted doc: %v", doc)
 	}
 	if false != spots["notes.footer"] {
-		t.Fatalf("the cat was banned from notes.footer but the doc says %v — the false went missing", spots["notes.footer"])
+		t.Fatalf("the cat was banned from notes.footer but the doc says %v: the false went missing", spots["notes.footer"])
 	}
 
 	var back domain.SiteCopy

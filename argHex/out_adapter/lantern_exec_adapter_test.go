@@ -58,7 +58,7 @@ func TestExecRunnerEnforcesTimeout(t *testing.T) {
 
 // A real build (npm → sh → node) spawns descendants that inherit the output
 // pipe. Killing only argv[0] would leave the backgrounded child holding the
-// pipe and CombinedOutput blocked for its full 30s — the process-group kill
+// pipe and CombinedOutput blocked for its full 30s; the process-group kill
 // must take the whole tree down promptly.
 func TestExecRunnerTimeoutKillsDescendants(t *testing.T) {
 	runner := out_adapter.NewLanternExecAdapter()

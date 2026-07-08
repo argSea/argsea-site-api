@@ -22,7 +22,7 @@ func newRack() (in_port.ProjectCRUDService, in_port.ActivityService) {
 func TestCreateAssignsNextOrder(t *testing.T) {
 	projects, _ := newRack()
 
-	// a body-supplied order is ignored — placement is server-assigned
+	// a body-supplied order is ignored; placement is server-assigned
 	first, _ := projects.Create(domain.Project{Title: "First", Order: 99})
 	second, _ := projects.Create(domain.Project{Title: "Second"})
 
@@ -48,7 +48,7 @@ func TestListSortsByOrderThenCreatedAt(t *testing.T) {
 	b, _ := projects.Create(domain.Project{Title: "B"})
 	c, _ := projects.Create(domain.Project{Title: "C"})
 
-	// shuffle: C to the front, A and B tied behind it — the tie breaks on
+	// shuffle: C to the front, A and B tied behind it; the tie breaks on
 	// createdAt asc, so A (created first) comes before B
 	projects.Reorder(c.Id, 0)
 	projects.Reorder(a.Id, 5)
@@ -63,7 +63,7 @@ func TestListSortsByOrderThenCreatedAt(t *testing.T) {
 	got := []string{all[0].Title, all[1].Title, all[2].Title}
 
 	if "C" != got[0] || "A" != got[1] || "B" != got[2] {
-		t.Fatalf("expected order C, A, B — got %v", got)
+		t.Fatalf("expected order C, A, B; got %v", got)
 	}
 }
 
@@ -139,7 +139,7 @@ func TestUpdatePreservesOrderAndFeatured(t *testing.T) {
 	projects.Reorder(saved.Id, 5)
 	projects.Feature(saved.Id)
 
-	// a full-replace PUT carrying stale placement must not move the postcard —
+	// a full-replace PUT carrying stale placement must not move the postcard;
 	// order and featured only change through their endpoints
 	edited, err := projects.Update(domain.Project{Id: saved.Id, Title: "Hold position", Order: 99, Featured: false})
 

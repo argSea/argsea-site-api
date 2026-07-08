@@ -49,7 +49,7 @@ func newLanternHarness(t *testing.T, buildCmd []string, keep int) (in_port.Lante
 	return lantern, state, activity, releasesDir, liveLink
 }
 
-// seedDist creates site/dist/index.html — the "build output" the stub command
+// seedDist creates site/dist/index.html: the "build output" the stub command
 // pretends to have produced.
 func seedDist(t *testing.T, siteDir string) {
 	t.Helper()
@@ -124,7 +124,7 @@ func TestHoistSuccessSwapsLiveLink(t *testing.T) {
 		t.Fatalf("live generation does not contain the built site: %v", statErr)
 	}
 
-	// start, then success — both in the ship's log
+	// start, then success; both in the ship's log
 	entries, _ := activity.Recent(10)
 
 	if 2 != len(entries) || domain.EntityLantern != entries[0].EntityType {
@@ -196,7 +196,7 @@ func TestHoistIsSingleFlight(t *testing.T) {
 		t.Fatalf("first hoist failed to start: %v", err)
 	}
 
-	// the build is blocked on the gate — a second hoist must bounce
+	// the build is blocked on the gate; a second hoist must bounce
 	status, err := lantern.Hoist()
 
 	if !errors.Is(err, in_port.ErrHoistAlreadyRunning) {
@@ -231,7 +231,7 @@ func TestHoistPrunesOldGenerationsButNeverTheLiveOne(t *testing.T) {
 
 	waitTerminal(t, lantern)
 
-	// the stage consumed dist — rebuild it for the second voyage
+	// the stage consumed dist; rebuild it for the second voyage
 	seedDist(t, filepath.Join(filepath.Dir(releasesDir), "site"))
 
 	if _, err := lantern.Hoist(); nil != err {
@@ -285,7 +285,7 @@ func TestStatusOutputIsBoundedTail(t *testing.T) {
 	}
 }
 
-// The failure path appends a reason to the tail — the bound must hold at
+// The failure path appends a reason to the tail; the bound must hold at
 // publication, not just after a successful build.
 func TestFailureOutputIsBoundedTail(t *testing.T) {
 	long := strings.Repeat("line\n", 150)

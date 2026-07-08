@@ -80,7 +80,7 @@ func TestUploadMediaRejectsSvg(t *testing.T) {
 	media, _, dir := newDarkroom(t)
 
 	// the legacy base64 path (profile pictures, contact icons) runs the same
-	// image-type gate as CreateMedia — an svg must never land on disk
+	// image-type gate as CreateMedia; an svg must never land on disk
 	if _, err := media.UploadMedia("image/svg+xml", []byte("<svg onload=alert(1)>")); nil == err {
 		t.Fatalf("expected image/svg+xml rejected on the base64 path")
 	}

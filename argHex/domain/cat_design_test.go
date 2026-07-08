@@ -7,7 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// A superseded design is published:false — that explicit false is the whole
+// A superseded design is published:false; that explicit false is the whole
 // one-published-per-pose bookkeeping. These tests guard the known trap: an
 // omitempty on the bool would drop the false during the Replace-based Set and
 // two cats would fly the same pose.
@@ -31,11 +31,11 @@ func TestPublishedFalseSurvivesBsonRoundTrip(t *testing.T) {
 	}
 
 	if false != doc["published"] {
-		t.Fatalf("the design was unpublished but the doc says %v — omitempty ate the false", doc["published"])
+		t.Fatalf("the design was unpublished but the doc says %v: omitempty ate the false", doc["published"])
 	}
 
 	if false != doc["seed"] {
-		t.Fatalf("the design is no seed but the doc says %v — omitempty ate the false", doc["seed"])
+		t.Fatalf("the design is no seed but the doc says %v: omitempty ate the false", doc["seed"])
 	}
 
 	var back domain.CatDesign

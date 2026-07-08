@@ -19,7 +19,7 @@ func NewCatDesignMongoAdapter(store *stores.Mordor) out_port.CatDesignRepo {
 	}
 }
 
-// List returns every design — the wardrobe is a handful of documents, so the
+// List returns every design; the wardrobe is a handful of documents, so the
 // published filtering stays in the service.
 func (c catDesignMongoAdapter) List() (domain.CatDesigns, error) {
 	var designs domain.CatDesigns

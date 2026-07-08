@@ -65,9 +65,9 @@ func (a lanternMuxAdapter) Hoist(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, status)
 }
 
-// Rollback re-points the live link at the previous kept build — no rebuild.
+// Rollback re-points the live link at the previous kept build; no rebuild.
 // 200 with the status on success; 409 while a hoist is in flight or when
-// nothing older is kept — both conflicts carry the LanternStatus body like
+// nothing older is kept; both conflicts carry the LanternStatus body like
 // Hoist's 409, and the admin tells them apart by the state fields.
 func (a lanternMuxAdapter) Rollback(w http.ResponseWriter, r *http.Request) {
 	if !requireAdmin(a.auth, w, r) {

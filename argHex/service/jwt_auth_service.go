@@ -21,7 +21,7 @@ func NewJWTAuthService(secret []byte) in_port.AuthService {
 }
 
 // Generate mints a signed HS256 token for the user, honoring the requested
-// expiry and role — pass in_port.PERM_ADMIN to mint an admin token.
+// expiry and role; pass in_port.PERM_ADMIN to mint an admin token.
 func (j jwtAuthService) Generate(id string, expires time.Time, roles []string) (string, error) {
 	// create jwt token
 	key := j.jwtSecret

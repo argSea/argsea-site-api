@@ -16,7 +16,7 @@ type doodleMuxAdapter struct {
 }
 
 // NewDoodleMuxAdapter wires the doodle routes under the mounted /1/doodle
-// prefix. List/Get are public — the site's marginalia renders anonymously;
+// prefix. List/Get are public; the site's marginalia renders anonymously;
 // the mutations are admin-only like the rest of the content editing.
 func NewDoodleMuxAdapter(doodle in_port.DoodleService, auth *WebAuth, router *mux.Router) *doodleMuxAdapter {
 	a := doodleMuxAdapter{

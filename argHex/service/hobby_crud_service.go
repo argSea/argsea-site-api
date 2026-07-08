@@ -58,7 +58,7 @@ func (h hobbyCRUDService) Create(hobby domain.Hobby) (domain.Hobby, error) {
 
 // nextOrder places a new hobby after everything already on the shelf:
 // max(order)+1 across all hobbies, active or resting. A failed list fails the
-// create — silently defaulting would collide at the front of the shelf.
+// create; silently defaulting would collide at the front of the shelf.
 func (h hobbyCRUDService) nextOrder() (int, error) {
 	hobbies, err := h.repo.List(false)
 

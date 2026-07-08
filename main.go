@@ -101,7 +101,7 @@ func main() {
 
 	jSecret := []byte(viper.GetString("jwt.secret"))
 
-	// JWT auth cannot run without a signing secret — fail fast with a pointer to the fix
+	// JWT auth cannot run without a signing secret; fail fast with a pointer to the fix
 	if 0 == len(jSecret) {
 		missing_secret := "jwt.secret is missing or empty in the config file; add it (see config.example.json)"
 		// log goes to the log file; also surface it on the console. log.Fatal exits.
@@ -146,7 +146,7 @@ func main() {
 	figureheadRouter := router.PathPrefix("/1/figurehead").Subrouter()
 	doodleRouter := router.PathPrefix("/1/doodle").Subrouter()
 
-	// the session cookie's domain is deploy-specific (prod vs a local vhost) —
+	// the session cookie's domain is deploy-specific (prod vs a local vhost);
 	// configurable, with the historical hardcoded value as the default
 	cookieDomain := viper.GetString("auth.cookie_domain")
 
@@ -159,7 +159,7 @@ func main() {
 	userAuthService := service.NewJWTAuthService(jSecret)
 	webAuth := in_adapter.NewWebAuth(userAuthService, jSecret, cookieDomain)
 
-	// shared history + ship's log — projects and notes snapshot into revisions,
+	// shared history + ship's log: projects and notes snapshot into revisions,
 	// every content mutation records an activity entry
 	log.Println("Initializing revisions and activity log")
 	revisionMordor := stores.NewMordor(mongo_db.DB.Collection(revisionTable), context.Background())
@@ -186,7 +186,7 @@ func main() {
 	hobbyService := service.NewHobbyCRUDService(out_adapter.NewHobbyMongoAdapter(hobbyMordor), activityService)
 	in_adapter.NewHobbyMuxAdapter(hobbyService, webAuth, hobbyRouter)
 
-	// site copy (signal flags) — singleton
+	// site copy (signal flags), singleton
 	log.Println("Initializing site copy")
 	siteCopyMordor := stores.NewMordor(mongo_db.DB.Collection(siteCopyTable), context.Background())
 	siteCopyService := service.NewSiteCopyService(out_adapter.NewSiteCopyMongoAdapter(siteCopyMordor), activityService)
@@ -198,7 +198,7 @@ func main() {
 	suggestionService := service.NewSuggestionService(out_adapter.NewSuggestionMongoAdapter(suggestionMordor), activityService)
 	in_adapter.NewSuggestionMuxAdapter(suggestionService, webAuth, suggestionRouter)
 
-	// media (the darkroom) — metadata in mongo, files on disk behind the
+	// media (the darkroom): metadata in mongo, files on disk behind the
 	// webstore adapter; the same service still carries the legacy base64 path
 	// the user adapter uploads through
 	log.Println("Initializing media")
@@ -208,7 +208,7 @@ func main() {
 	mediaService := service.NewMediaService(out_adapter.NewMediaWebstoreAdapter(save_path, web_path), out_adapter.NewMediaMetaMongoAdapter(mediaMordor), activityService)
 	in_adapter.NewMediaMuxAdapter(mediaService, webAuth, mediaRouter)
 
-	// the figurehead shop (cat designs) — the seed plants the shipped v1 cats
+	// the figurehead shop (cat designs): the seed plants the shipped v1 cats
 	// into an empty collection so "go back to v1" is always possible; on every
 	// later boot it is a no-op
 	log.Println("Initializing figurehead")
@@ -223,26 +223,26 @@ func main() {
 
 	in_adapter.NewFigureheadMuxAdapter(figureheadService, webAuth, figureheadRouter)
 
-	// doodles (marginalia sketches for the Keeper's Journal) — structured
+	// doodles (marginalia sketches for the Keeper's Journal): structured
 	// shapes only, no publish/seed/pose lifecycle
 	log.Println("Initializing doodle")
 	doodleMordor := stores.NewMordor(mongo_db.DB.Collection(doodleTable), context.Background())
 	doodleService := service.NewDoodleService(out_adapter.NewDoodleMongoAdapter(doodleMordor), activityService)
 	in_adapter.NewDoodleMuxAdapter(doodleService, webAuth, doodleRouter)
 
-	// users — kept (auth depends on it)
+	// users: kept (auth depends on it)
 	log.Println("Initializing user")
 	userMordor := stores.NewMordor(mongo_db.DB.Collection(userTable), context.Background())
 	userMongoAdapter := out_adapter.NewUserMongoAdapter(userMordor)
 	userService := service.NewUserCRUDService(userMongoAdapter)
 	in_adapter.NewUserMuxAdapter(userService, mediaService, webAuth, userRouter)
 
-	// auth — kept; sessions are issued through the same shared WebAuth store
+	// auth: kept; sessions are issued through the same shared WebAuth store
 	log.Println("Initializing auth")
 	userLoginService := service.NewUserLoginService(userMongoAdapter)
 	in_adapter.NewAuthMuxAdapter(userAuthService, userLoginService, webAuth, authRouter)
 
-	// the lantern — deploy-on-hoist. The config section IS the feature flag:
+	// the lantern: deploy-on-hoist. The config section IS the feature flag:
 	// no lantern section, no routes mounted, nothing else changes.
 	if viper.IsSet("lantern") {
 		log.Println("Initializing lantern")

@@ -167,7 +167,7 @@ func (a projectMuxAdapter) Unpublish(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, saved)
 }
 
-// Reorder moves the postcard to a new rack position — lifecycle-style, so no
+// Reorder moves the postcard to a new rack position; lifecycle-style, so no
 // revision snapshot behind it.
 func (a projectMuxAdapter) Reorder(w http.ResponseWriter, r *http.Request) {
 	if !requireAdmin(a.auth, w, r) {
@@ -228,7 +228,7 @@ func (a projectMuxAdapter) Unfeature(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, saved)
 }
 
-// Revisions lists the last few printings for the rollback UI. Admin-only — the
+// Revisions lists the last few printings for the rollback UI. Admin-only; the
 // history is not public. Defaults to the last 5.
 func (a projectMuxAdapter) Revisions(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(a.auth, w, r) {

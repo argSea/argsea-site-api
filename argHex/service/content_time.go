@@ -3,7 +3,7 @@ package service
 import "time"
 
 // contentStampLayout is fixed-width (nanoseconds always 9 digits) so that a
-// plain string sort is a chronological sort even within the same second —
+// plain string sort is a chronological sort even within the same second;
 // RFC3339Nano trims trailing zeros and breaks that.
 const contentStampLayout = "2006-01-02T15:04:05.000000000Z07:00"
 

@@ -13,14 +13,14 @@ import (
 )
 
 // lanternOutputTailLines bounds how much build output the status payload
-// carries — the admin sees the tail of the log, not the whole thing.
+// carries; the admin sees the tail of the log, not the whole thing.
 const lanternOutputTailLines = 100
 
 // LanternConfig is everything the hoist pipeline needs to know about the box:
 // where the site checkout lives, how to build it, and how deep the release
 // history is kept.
 type LanternConfig struct {
-	SiteDir  string        // the Astro checkout — the build's working directory
+	SiteDir  string        // the Astro checkout (the build's working directory)
 	BuildCmd []string      // argv array, never a shell string
 	DistDir  string        // build output, relative to SiteDir
 	Keep     int           // generations to retain after a hoist
@@ -92,7 +92,7 @@ func (l *lanternService) Hoist() (domain.LanternStatus, error) {
 	return status, nil
 }
 
-// Rollback re-points the live link at the previous kept generation — no
+// Rollback re-points the live link at the previous kept generation; no
 // rebuild, just the symlink swap. The lock is held across the filesystem work
 // (two fast symlink operations) so a hoist can neither start mid-rollback nor
 // be running while the link moves.
@@ -163,7 +163,7 @@ func (l *lanternService) run() {
 	}
 
 	if pruneErr := l.releases.Prune(l.cfg.Keep); nil != pruneErr {
-		// the swap already landed — a prune failure leaves extra generations on
+		// the swap already landed; a prune failure leaves extra generations on
 		// disk, it doesn't un-ship the site
 		log.Printf("lantern prune failed: %v\n", pruneErr)
 	}

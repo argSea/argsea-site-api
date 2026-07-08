@@ -66,7 +66,7 @@ func (n noteCRUDService) Create(note domain.Note) (domain.Note, error) {
 	return saved, nil
 }
 
-// Update writes new content but leaves the publication lifecycle alone — status
+// Update writes new content but leaves the publication lifecycle alone; status
 // and published_at only move through Publish/Unpublish. Every edit snapshots the
 // full document.
 func (n noteCRUDService) Update(note domain.Note) (domain.Note, error) {
@@ -186,7 +186,7 @@ func (n noteCRUDService) Restore(id string, revisionID string) (domain.Note, err
 }
 
 // snapshot marshals the full document and records it as the new current
-// revision. A failed snapshot fails the write — history must not silently
+// revision. A failed snapshot fails the write; history must not silently
 // diverge from the live document.
 func (n noteCRUDService) snapshot(note domain.Note, verb string) error {
 	data, err := json.Marshal(note)

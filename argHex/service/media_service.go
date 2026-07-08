@@ -11,7 +11,7 @@ import (
 	"github.com/argSea/argsea-site-api/argHex/out_port"
 )
 
-// The darkroom takes photographs only — these content types are the whole
+// The darkroom takes photographs only; these content types are the whole
 // vocabulary, and anything else is rejected before a byte lands on disk.
 // SVG is deliberately absent: files serve static from /media/images/, so a
 // navigated-to SVG would run script in the argsea.com origin.
@@ -29,8 +29,8 @@ type mediaService struct {
 	activity  in_port.ActivityService
 }
 
-// NewMediaService wires the darkroom onto its two halves — files on disk,
-// metadata in mongo — plus the ship's log.
+// NewMediaService wires the darkroom onto its two halves: files on disk,
+// metadata in mongo, plus the ship's log.
 func NewMediaService(mediaRepo out_port.MediaRepo, meta out_port.MediaMetaRepo, activity in_port.ActivityService) in_port.MediaService {
 	return mediaService{
 		mediaRepo: mediaRepo,
@@ -92,7 +92,7 @@ func (m mediaService) CreateMedia(file_name string, mime_type string, bytes []by
 		return domain.Media{}, in_port.MediaValidationError{Message: "a filename is required"}
 	}
 
-	// one name, one file — a duplicate would silently overwrite the first
+	// one name, one file; a duplicate would silently overwrite the first
 	// print while both metadata documents kept pointing at it
 	existing, err := m.meta.List()
 
@@ -119,7 +119,7 @@ func (m mediaService) CreateMedia(file_name string, mime_type string, bytes []by
 	})
 
 	if nil != err {
-		// the file half landed but the metadata half didn't — pull the file back
+		// the file half landed but the metadata half didn't; pull the file back
 		// so the darkroom never holds an orphan print
 		if removeErr := m.mediaRepo.RemoveNamed(file_name); nil != removeErr {
 			log.Printf("could not remove orphaned media file %v: %v\n", file_name, removeErr)
@@ -134,7 +134,7 @@ func (m mediaService) CreateMedia(file_name string, mime_type string, bytes []by
 }
 
 // DeleteMedia removes the metadata document and the file behind it. Documents
-// that reference the filename are deliberately untouched — detaching is the
+// that reference the filename are deliberately untouched; detaching is the
 // admin's job client-side.
 func (m mediaService) DeleteMedia(media_id string) error {
 	media := m.meta.Get(media_id)

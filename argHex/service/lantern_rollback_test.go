@@ -79,7 +79,7 @@ func TestRollbackDuringHoistIsRefused(t *testing.T) {
 		t.Fatalf("hoist failed to start: %v", err)
 	}
 
-	// the build is blocked on the gate — the rollback must bounce off it
+	// the build is blocked on the gate; the rollback must bounce off it
 	if _, err := lantern.Rollback(); !errors.Is(err, in_port.ErrHoistAlreadyRunning) {
 		t.Fatalf("expected ErrHoistAlreadyRunning, got %v", err)
 	}

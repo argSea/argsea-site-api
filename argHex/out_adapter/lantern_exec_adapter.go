@@ -20,7 +20,7 @@ type lanternExecAdapter struct {
 }
 
 // NewLanternExecAdapter returns the real BuildRunner: it execs the argv
-// directly — no shell ever sees the command line — with a hard timeout.
+// directly (no shell ever sees the command line) with a hard timeout.
 func NewLanternExecAdapter() out_port.BuildRunner {
 	return lanternExecAdapter{}
 }
@@ -45,7 +45,7 @@ func (l lanternExecAdapter) Run(dir string, argv []string, env []string, timeout
 
 	// a build spawns descendants (npm → sh → node) that inherit the output
 	// pipe. Run the whole tree in its own process group and kill the group on
-	// timeout — killing only argv[0] would leave a grandchild holding the pipe
+	// timeout; killing only argv[0] would leave a grandchild holding the pipe
 	// and CombinedOutput blocked until it exits
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error {

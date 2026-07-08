@@ -119,7 +119,7 @@ func TestUnauthDraftByIdIs404(t *testing.T) {
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
-	// 404, not 401 — a draft's existence is not confirmed to the public
+	// 404, not 401; a draft's existence is not confirmed to the public
 	if http.StatusNotFound != rec.Code {
 		t.Fatalf("expected 404 for an unauthenticated draft read, got %d", rec.Code)
 	}
@@ -140,7 +140,7 @@ func TestUnauthPublishedByIdIsVisible(t *testing.T) {
 func TestCreateWithInvalidStampIs400(t *testing.T) {
 	_, _, token, router := newProjectRouter(t)
 
-	// ink outside the enum — the exact XSS vector the gate exists for
+	// ink outside the enum; the exact XSS vector the gate exists for
 	body := strings.NewReader(`{"title":"Bad stamp","stamp":{"shape":"rect","motif":"sun","ink":"expression(alert(1))"}}`)
 
 	req := httptest.NewRequest("POST", "/1/project", body)
@@ -160,7 +160,7 @@ func TestCreateWithInvalidStampIs400(t *testing.T) {
 		t.Fatalf("expected the error envelope, got %s", rec.Body.String())
 	}
 
-	// and nothing was written — the authed list still holds only the seeds
+	// and nothing was written; the authed list still holds only the seeds
 	code, projects := getProjects(t, router, "/1/project", token)
 
 	if http.StatusOK != code || 2 != len(projects) {
@@ -171,7 +171,7 @@ func TestCreateWithInvalidStampIs400(t *testing.T) {
 func TestReorderWithoutOrderFieldIs400(t *testing.T) {
 	draftID, _, token, router := newProjectRouter(t)
 
-	// a reorder must say where the postcard goes — an empty object and broken
+	// a reorder must say where the postcard goes; an empty object and broken
 	// JSON are both rejected before the service is reached
 	for _, body := range []string{`{}`, `{"order":null}`, `not-json`} {
 		req := httptest.NewRequest("POST", "/1/project/"+draftID+"/reorder", strings.NewReader(body))
@@ -184,7 +184,7 @@ func TestReorderWithoutOrderFieldIs400(t *testing.T) {
 		}
 	}
 
-	// and the postcard never moved — the draft still holds its seeded position
+	// and the postcard never moved; the draft still holds its seeded position
 	req := httptest.NewRequest("GET", "/1/project/"+draftID, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()

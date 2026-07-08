@@ -18,8 +18,8 @@ func NewRevisionService(repo out_port.RevisionRepo) in_port.RevisionService {
 
 // Snapshot appends a new current revision, then clears the current flag on the
 // entity's other revisions. Insert-first ordering means a failure between the
-// two steps leaves two current revisions — which self-heals on the next
-// snapshot — never zero.
+// two steps leaves two current revisions, which self-heals on the next
+// snapshot; never zero.
 func (r revisionService) Snapshot(entityType string, entityID string, snapshot string, summary string) (string, error) {
 	rev := domain.Revision{
 		EntityType: entityType,

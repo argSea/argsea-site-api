@@ -35,7 +35,7 @@ func newMediaRouter(t *testing.T) *mux.Router {
 func TestMediaRoutesAreAuthGated(t *testing.T) {
 	router := newMediaRouter(t)
 
-	// the whole darkroom is keeper-only — every route bounces an anonymous call
+	// the whole darkroom is keeper-only; every route bounces an anonymous call
 	cases := []struct {
 		method string
 		path   string

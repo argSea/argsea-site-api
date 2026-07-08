@@ -148,7 +148,7 @@ func (m *Mordor) Update(key string, newData interface{}) error {
 
 // Replace swaps the stored document for newData wholesale (ReplaceOne, not
 // $set). Content updates go through this so a field the caller cleared is
-// actually cleared — $set over bson-omitempty fields silently merges instead.
+// actually cleared; $set over bson-omitempty fields silently merges instead.
 // This exactly matches the snapshot/restore model: what you write is what the
 // document becomes.
 func (m *Mordor) Replace(key string, newData interface{}) error {
