@@ -36,6 +36,14 @@ func (h hobbyCRUDService) Create(hobby domain.Hobby) (domain.Hobby, error) {
 	hobby.CreatedAt = now
 	hobby.UpdatedAt = now
 
+	order, orderErr := h.nextOrder()
+
+	if nil != orderErr {
+		return domain.Hobby{}, orderErr
+	}
+
+	hobby.Order = order
+
 	id, err := h.repo.Add(hobby)
 
 	if nil != err {
@@ -46,6 +54,27 @@ func (h hobbyCRUDService) Create(hobby domain.Hobby) (domain.Hobby, error) {
 	h.record("hobby \""+saved.Name+"\" picked up", saved.Id)
 
 	return saved, nil
+}
+
+// nextOrder places a new hobby after everything already on the shelf:
+// max(order)+1 across all hobbies, active or resting. A failed list fails the
+// create — silently defaulting would collide at the front of the shelf.
+func (h hobbyCRUDService) nextOrder() (int, error) {
+	hobbies, err := h.repo.List(false)
+
+	if nil != err {
+		return 0, err
+	}
+
+	max := 0
+
+	for _, hobby := range hobbies {
+		if hobby.Order > max {
+			max = hobby.Order
+		}
+	}
+
+	return max + 1, nil
 }
 
 func (h hobbyCRUDService) Update(hobby domain.Hobby) (domain.Hobby, error) {
