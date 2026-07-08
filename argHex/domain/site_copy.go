@@ -18,6 +18,7 @@ type SiteCopy struct {
 	CatSpots       map[string]bool `json:"catSpots,omitempty" bson:"catSpots,omitempty"`
 	BottleProverbs []string        `json:"bottleProverbs" bson:"bottleProverbs,omitempty"`
 	Lighthouses    []Lighthouse    `json:"lighthouses" bson:"lighthouses,omitempty"`
+	WallGhost      *WallGhost      `json:"wallGhost,omitempty" bson:"wallGhost,omitempty"` // nullable: nil means the site uses its default ghost placement
 	UpdatedAt      string          `json:"updatedAt" bson:"updatedAt,omitempty"`
 }
 
@@ -29,6 +30,17 @@ type Eggs struct {
 	Bottle bool `json:"bottle" bson:"bottle"`
 	Cat    bool `json:"cat" bson:"cat"`
 	Lights bool `json:"lights" bson:"lights"`
+}
+
+// WallGhost pins the "out with the mail, back soon" placard to an exact spot
+// on the public projects wall. X/Y are percentages of the wall (0-100);
+// Rotation is degrees; same coordinate model as Project's WallPos. Enabled
+// skips omitempty: false (hidden) must survive a replace write.
+type WallGhost struct {
+	X        float64 `json:"x" bson:"x"`
+	Y        float64 `json:"y" bson:"y"`
+	Rotation float64 `json:"rotation" bson:"rotation"`
+	Enabled  bool    `json:"enabled" bson:"enabled"`
 }
 
 // CatPages and CatSpots are where the harbor cat is allowed to roam, keyed by

@@ -104,7 +104,7 @@ func TestLegacyDocRoundTripsWithoutEggBlocks(t *testing.T) {
 	if err := bson.Unmarshal(raw, &doc); nil != err {
 		t.Fatalf("unmarshal to doc failed: %v", err)
 	}
-	for _, key := range []string{"eggs", "catPages", "catSpots", "bottleProverbs", "lighthouses"} {
+	for _, key := range []string{"eggs", "catPages", "catSpots", "bottleProverbs", "lighthouses", "wallGhost"} {
 		if _, present := doc[key]; present {
 			t.Fatalf("legacy doc grew a %q block it never had: %v", key, doc)
 		}
@@ -114,8 +114,47 @@ func TestLegacyDocRoundTripsWithoutEggBlocks(t *testing.T) {
 	if err := bson.Unmarshal(raw, &back); nil != err {
 		t.Fatalf("unmarshal to SiteCopy failed: %v", err)
 	}
-	if nil != back.Eggs || nil != back.CatPages || nil != back.CatSpots {
-		t.Fatalf("legacy doc should load with nil egg config, got eggs=%+v catPages=%+v catSpots=%+v", back.Eggs, back.CatPages, back.CatSpots)
+	if nil != back.Eggs || nil != back.CatPages || nil != back.CatSpots || nil != back.WallGhost {
+		t.Fatalf("legacy doc should load with nil egg config, got eggs=%+v catPages=%+v catSpots=%+v wallGhost=%+v", back.Eggs, back.CatPages, back.CatSpots, back.WallGhost)
+	}
+}
+
+// The wall ghost is off by default in the sense that a disabled placard has
+// to stay disabled through a Replace-based Save, so its Enabled bool guards
+// the same omitempty trap as Eggs.
+
+func TestWallGhostSurvivesBsonRoundTrip(t *testing.T) {
+	flags := domain.SiteCopy{
+		WallGhost: &domain.WallGhost{X: 12.5, Y: 80, Rotation: -3, Enabled: false},
+	}
+
+	raw, err := bson.Marshal(flags)
+	if nil != err {
+		t.Fatalf("marshal failed: %v", err)
+	}
+
+	var doc bson.M
+	if err := bson.Unmarshal(raw, &doc); nil != err {
+		t.Fatalf("unmarshal to doc failed: %v", err)
+	}
+
+	ghost, ok := doc["wallGhost"].(bson.M)
+	if !ok {
+		t.Fatalf("wallGhost block missing from the persisted doc: %v", doc)
+	}
+	if false != ghost["enabled"] {
+		t.Fatalf("the ghost was switched off but the doc says %v: omitempty ate the false", ghost["enabled"])
+	}
+
+	var back domain.SiteCopy
+	if err := bson.Unmarshal(raw, &back); nil != err {
+		t.Fatalf("unmarshal to SiteCopy failed: %v", err)
+	}
+	if nil == back.WallGhost {
+		t.Fatalf("wallGhost did not round-trip: got nil")
+	}
+	if 12.5 != back.WallGhost.X || 80 != back.WallGhost.Y || -3 != back.WallGhost.Rotation || back.WallGhost.Enabled {
+		t.Fatalf("expected wall ghost {12.5 80 -3 false}, got %+v", back.WallGhost)
 	}
 }
 
