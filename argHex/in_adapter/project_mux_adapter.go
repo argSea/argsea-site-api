@@ -30,6 +30,9 @@ func NewProjectMuxAdapter(project in_port.ProjectCRUDService, auth *WebAuth, rou
 	// authored writes
 	router.HandleFunc("", a.Create).Methods("POST")
 	router.HandleFunc("/", a.Create).Methods("POST")
+	// /arrangement must be registered ahead of /{id} PUT or mux would swallow
+	// it as an update for a project literally named "arrangement"
+	router.HandleFunc("/arrangement", a.Arrangement).Methods("PUT")
 	router.HandleFunc("/{id}", a.Update).Methods("PUT")
 	router.HandleFunc("/{id}", a.Delete).Methods("DELETE")
 
@@ -189,6 +192,32 @@ func (a projectMuxAdapter) Reorder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	saved, err := a.project.Reorder(mux.Vars(r)["id"], *body.Order)
+
+	if nil != err {
+		writeError(w, 400, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, saved)
+}
+
+// Arrangement pins a batch of postcards to their wall positions in one call;
+// lifecycle-style like Reorder, so no revision snapshot behind it.
+func (a projectMuxAdapter) Arrangement(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(a.auth, w, r) {
+		return
+	}
+
+	var body struct {
+		Placements []domain.WallPlacement `json:"placements"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); nil != err {
+		writeError(w, 400, err.Error())
+		return
+	}
+
+	saved, err := a.project.Arrangement(body.Placements)
 
 	if nil != err {
 		writeError(w, 400, err.Error())
