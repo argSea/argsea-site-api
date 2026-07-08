@@ -11,6 +11,7 @@ type ProjectCRUDService interface {
 	Publish(id string) (domain.Project, error)
 	Unpublish(id string) (domain.Project, error)
 	Reorder(id string, order int) (domain.Project, error)
+	Arrangement(placements []domain.WallPlacement) ([]domain.Project, error)
 	Feature(id string) (domain.Project, error)
 	Unfeature(id string) (domain.Project, error)
 	Revisions(id string, limit int64) (domain.Revisions, error)

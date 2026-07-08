@@ -187,6 +187,7 @@ func (p projectCRUDService) Update(project domain.Project) (domain.Project, erro
 	project.PublishedAt = existing.PublishedAt
 	project.Order = existing.Order
 	project.Featured = existing.Featured
+	project.WallPos = existing.WallPos
 	project.CreatedAt = existing.CreatedAt
 	project.UpdatedAt = nowStamp()
 
@@ -277,6 +278,35 @@ func (p projectCRUDService) Reorder(id string, order int) (domain.Project, error
 	p.record("postcard \""+project.Title+"\" reordered to "+strconv.Itoa(order), id)
 
 	return p.repo.Get(id), nil
+}
+
+// Arrangement pins each listed postcard to its wall position. Non-destructive:
+// a project left out of the batch keeps whatever position it already has.
+// Lifecycle-style like Reorder: activity-logged but never snapshotted;
+// dragging cards around the wall must not spam the revision history.
+func (p projectCRUDService) Arrangement(placements []domain.WallPlacement) ([]domain.Project, error) {
+	saved := make([]domain.Project, 0, len(placements))
+
+	for _, placement := range placements {
+		project := p.repo.Get(placement.Id)
+
+		if "" == project.Id {
+			return nil, errors.New("project not found: " + placement.Id)
+		}
+
+		project.WallPos = &domain.WallPos{X: placement.X, Y: placement.Y, Rotation: placement.Rotation}
+		project.UpdatedAt = nowStamp()
+
+		if err := p.repo.Set(project); nil != err {
+			return nil, err
+		}
+
+		saved = append(saved, p.repo.Get(placement.Id))
+	}
+
+	p.record("wall arrangement saved: "+strconv.Itoa(len(placements))+" postcard(s) pinned", "")
+
+	return saved, nil
 }
 
 // Feature puts the postcard on the mantel. No cap here; the admin enforces

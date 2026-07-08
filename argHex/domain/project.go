@@ -15,6 +15,25 @@ type Stamp struct {
 	Text  string `json:"text" bson:"text,omitempty"`   // caption: text motif only (required then), ≤ 40 chars after trim
 }
 
+// WallPos pins a postcard to an exact spot on the public wall. X/Y are
+// percentages of the wall (0-100); Rotation is degrees. No omitempty on these
+// three: 0 is meaningful (top-left / no tilt), same reason order and featured
+// deliberately omit it on Project.
+type WallPos struct {
+	X        float64 `json:"x" bson:"x"`
+	Y        float64 `json:"y" bson:"y"`
+	Rotation float64 `json:"rotation" bson:"rotation"`
+}
+
+// WallPlacement is one entry in a bulk arrangement request: the postcard to
+// pin and where it lands.
+type WallPlacement struct {
+	Id       string  `json:"id"`
+	X        float64 `json:"x"`
+	Y        float64 `json:"y"`
+	Rotation float64 `json:"rotation"`
+}
+
 // Project is a "postcard from production": the reshaped portfolio entry that
 // replaces the legacy user-scoped project. Body is long-form rich text stored
 // as a sanitized HTML string (banked decision); Image is a nullable reference
@@ -34,9 +53,10 @@ type Project struct {
 	Image        *string  `json:"image" bson:"image,omitempty"` // nullable media name
 	Stamp        *Stamp   `json:"stamp" bson:"stamp,omitempty"` // nullable postage decoration
 	Status       string   `json:"status" bson:"status,omitempty"`
-	Order        int      `json:"order" bson:"order"`             // no omitempty: 0 is a real rack position
-	Featured     bool     `json:"featured" bson:"featured"`       // no omitempty: false must survive a replace write
-	PublishedAt  string   `json:"publishedAt" bson:"publishedAt"` // no omitempty: unpublish must clear it
+	Order        int      `json:"order" bson:"order"`                         // no omitempty: 0 is a real rack position
+	Featured     bool     `json:"featured" bson:"featured"`                   // no omitempty: false must survive a replace write
+	PublishedAt  string   `json:"publishedAt" bson:"publishedAt"`             // no omitempty: unpublish must clear it
+	WallPos      *WallPos `json:"wallPos,omitempty" bson:"wallPos,omitempty"` // nullable: nil means not yet placed on the wall
 	CreatedAt    string   `json:"createdAt" bson:"createdAt,omitempty"`
 	UpdatedAt    string   `json:"updatedAt" bson:"updatedAt,omitempty"`
 }
