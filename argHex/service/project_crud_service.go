@@ -118,9 +118,10 @@ func validateLight(light *domain.Light) error {
 		return errors.New("light period is only valid on flash, occult, iso, or morse")
 	}
 
-	// a morse letter needs room for its pattern; two seconds cannot fit one
-	if "morse" == light.Kind && (4 > light.Period || 30 < light.Period) {
-		return errors.New("light period must be 4 to 30 seconds for morse")
+	// a morse letter needs room for its pattern: the longest letters run
+	// 5.2s of dots and dashes, so anything under six truncates the signal
+	if "morse" == light.Kind && (6 > light.Period || 30 < light.Period) {
+		return errors.New("light period must be 6 to 30 seconds for morse")
 	}
 
 	// every other keeper-timed kind needs a cycle the site can actually animate

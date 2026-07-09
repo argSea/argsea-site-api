@@ -176,9 +176,9 @@ func TestMorseLetterCoupledToKind(t *testing.T) {
 func TestMorsePeriodNeedsRoom(t *testing.T) {
 	projects := newProjects()
 
-	// the generic 2-30 band still applies; morse additionally needs room for
-	// its pattern, so 2 and 3 second cycles are rejected
-	for _, ok := range []int{4, 30} {
+	// morse needs room for its pattern: the longest letters run 5.2s of
+	// dots and dashes, so cycles under six seconds are rejected
+	for _, ok := range []int{6, 30} {
 		light := &domain.Light{Kind: "morse", Color: "white", Period: ok, Letter: "K"}
 
 		if _, err := projects.Create(domain.Project{Title: "Mo bounds", Light: light}); nil != err {
@@ -186,7 +186,7 @@ func TestMorsePeriodNeedsRoom(t *testing.T) {
 		}
 	}
 
-	for _, bad := range []int{0, 3, 31} {
+	for _, bad := range []int{0, 5, 31} {
 		light := &domain.Light{Kind: "morse", Color: "white", Period: bad, Letter: "K"}
 
 		if _, err := projects.Create(domain.Project{Title: "Mo bounds", Light: light}); nil == err {
