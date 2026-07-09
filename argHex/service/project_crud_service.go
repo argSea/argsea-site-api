@@ -77,6 +77,68 @@ func validateStamp(stamp *domain.Stamp) error {
 	return nil
 }
 
+// The light vocabulary is closed for the same reason as the stamp's: kind and
+// color select animation names and glow colors rendered into style attributes
+// on the public site, so this enum gate is the injection boundary for light
+// data.
+var lightKinds = map[string]bool{"fixed": true, "flash": true, "occult": true, "iso": true}
+var lightColors = map[string]bool{"white": true, "red": true, "green": true}
+
+// validateLight normalizes a light in place and checks it against the closed
+// vocabulary. A nil light is valid; the site burns it as the default fixed
+// white. The period is coupled to the blinking kinds the way stamp cents is
+// coupled to the rect shape: a period on a fixed light is rejected rather
+// than silently stored unrendered.
+func validateLight(light *domain.Light) error {
+	if nil == light {
+		return nil
+	}
+
+	// trim before measuring, so the store holds exactly what was validated
+	light.Extinguished = strings.TrimSpace(light.Extinguished)
+
+	if !lightKinds[light.Kind] {
+		return errors.New("light kind must be one of fixed, flash, occult, iso")
+	}
+
+	if !lightColors[light.Color] {
+		return errors.New("light color must be white, red, or green")
+	}
+
+	if "fixed" == light.Kind && 0 != light.Period {
+		return errors.New("light period is only valid on a blinking kind")
+	}
+
+	if "fixed" != light.Kind && (2 > light.Period || 30 < light.Period) {
+		return errors.New("light period must be 2 to 30 seconds")
+	}
+
+	if 40 < utf8.RuneCountInString(light.Extinguished) {
+		return errors.New("light extinguished must be 40 characters or fewer")
+	}
+
+	return nil
+}
+
+// validateImages trims gallery entries in place. An empty name would 404 on
+// the public site, so it is rejected rather than silently dropped; the cap is
+// a backstop against a runaway gallery, not a design constraint.
+func validateImages(images []string) error {
+	if 12 < len(images) {
+		return errors.New("images is capped at 12 prints")
+	}
+
+	for i, name := range images {
+		images[i] = strings.TrimSpace(name)
+
+		if "" == images[i] {
+			return errors.New("images must not contain an empty name")
+		}
+	}
+
+	return nil
+}
+
 type projectCRUDService struct {
 	repo      out_port.ProjectRepo
 	revisions in_port.RevisionService
@@ -117,8 +179,17 @@ func (p projectCRUDService) Read(id string) domain.Project {
 }
 
 func (p projectCRUDService) Create(project domain.Project) (domain.Project, error) {
-	// an invalid stamp never reaches the store; reject before anything is written
+	// an invalid stamp or light never reaches the store; reject before
+	// anything is written
 	if err := validateStamp(project.Stamp); nil != err {
+		return domain.Project{}, err
+	}
+
+	if err := validateLight(project.Light); nil != err {
+		return domain.Project{}, err
+	}
+
+	if err := validateImages(project.Images); nil != err {
 		return domain.Project{}, err
 	}
 
@@ -127,6 +198,7 @@ func (p projectCRUDService) Create(project domain.Project) (domain.Project, erro
 	// body is rich text; it lives in the store already sanitized
 	project.Id = ""
 	project.Body = utility.SanitizeHTML(project.Body)
+	project.FirstLit = strings.TrimSpace(project.FirstLit)
 
 	if "" == project.Status {
 		project.Status = domain.StatusDraft
@@ -137,8 +209,8 @@ func (p projectCRUDService) Create(project domain.Project) (domain.Project, erro
 		project.PublishedAt = now
 	}
 
-	// rack placement is server-assigned: a new postcard lands at the end, and
-	// nothing reaches the mantel except through the feature endpoint
+	// rack placement is server-assigned: a new light lands at the end, and
+	// nothing reaches the front window except through the feature endpoint
 	order, orderErr := p.nextOrder()
 
 	if nil != orderErr {
@@ -162,7 +234,7 @@ func (p projectCRUDService) Create(project domain.Project) (domain.Project, erro
 		return domain.Project{}, err
 	}
 
-	p.record("postcard \""+saved.Title+"\" created", saved.Id)
+	p.record("light \""+saved.Title+"\" created", saved.Id)
 
 	return saved, nil
 }
@@ -177,12 +249,22 @@ func (p projectCRUDService) Update(project domain.Project) (domain.Project, erro
 		return domain.Project{}, errors.New("project not found")
 	}
 
-	// an invalid stamp never reaches the store; reject before anything is written
+	// an invalid stamp or light never reaches the store; reject before
+	// anything is written
 	if err := validateStamp(project.Stamp); nil != err {
 		return domain.Project{}, err
 	}
 
+	if err := validateLight(project.Light); nil != err {
+		return domain.Project{}, err
+	}
+
+	if err := validateImages(project.Images); nil != err {
+		return domain.Project{}, err
+	}
+
 	project.Body = utility.SanitizeHTML(project.Body)
+	project.FirstLit = strings.TrimSpace(project.FirstLit)
 	project.Status = existing.Status
 	project.PublishedAt = existing.PublishedAt
 	project.Order = existing.Order
@@ -200,7 +282,7 @@ func (p projectCRUDService) Update(project domain.Project) (domain.Project, erro
 		return domain.Project{}, err
 	}
 
-	p.record("postcard \""+saved.Title+"\" edited", saved.Id)
+	p.record("light \""+saved.Title+"\" edited", saved.Id)
 
 	return saved, nil
 }
@@ -212,7 +294,7 @@ func (p projectCRUDService) Delete(id string) error {
 		return err
 	}
 
-	p.record("postcard \""+existing.Title+"\" deleted", id)
+	p.record("light \""+existing.Title+"\" deleted", id)
 
 	return nil
 }
@@ -233,7 +315,7 @@ func (p projectCRUDService) Publish(id string) (domain.Project, error) {
 		return domain.Project{}, err
 	}
 
-	p.record("postcard \""+project.Title+"\" published", id)
+	p.record("light \""+project.Title+"\" published", id)
 
 	return p.repo.Get(id), nil
 }
@@ -253,12 +335,12 @@ func (p projectCRUDService) Unpublish(id string) (domain.Project, error) {
 		return domain.Project{}, err
 	}
 
-	p.record("postcard \""+project.Title+"\" unpublished", id)
+	p.record("light \""+project.Title+"\" unpublished", id)
 
 	return p.repo.Get(id), nil
 }
 
-// Reorder moves the postcard to a new rack position. Lifecycle-style like
+// Reorder moves the light to a new rack position. Lifecycle-style like
 // Publish: activity-logged but never snapshotted; reordering the rack must
 // not spam the revision history.
 func (p projectCRUDService) Reorder(id string, order int) (domain.Project, error) {
@@ -275,15 +357,15 @@ func (p projectCRUDService) Reorder(id string, order int) (domain.Project, error
 		return domain.Project{}, err
 	}
 
-	p.record("postcard \""+project.Title+"\" reordered to "+strconv.Itoa(order), id)
+	p.record("light \""+project.Title+"\" reordered to "+strconv.Itoa(order), id)
 
 	return p.repo.Get(id), nil
 }
 
-// Arrangement pins each listed postcard to its wall position. Non-destructive:
+// Arrangement pins each listed light to its coast position. Non-destructive:
 // a project left out of the batch keeps whatever position it already has.
 // Lifecycle-style like Reorder: activity-logged but never snapshotted;
-// dragging cards around the wall must not spam the revision history.
+// dragging lights along the coast must not spam the revision history.
 func (p projectCRUDService) Arrangement(placements []domain.WallPlacement) ([]domain.Project, error) {
 	saved := make([]domain.Project, 0, len(placements))
 
@@ -304,18 +386,18 @@ func (p projectCRUDService) Arrangement(placements []domain.WallPlacement) ([]do
 		saved = append(saved, p.repo.Get(placement.Id))
 	}
 
-	p.record("wall arrangement saved: "+strconv.Itoa(len(placements))+" postcard(s) pinned", "")
+	p.record("coast arrangement saved: "+strconv.Itoa(len(placements))+" light(s) pinned", "")
 
 	return saved, nil
 }
 
-// Feature puts the postcard on the mantel. No cap here; the admin enforces
-// the mantel-fits-three rule; no snapshot either, same as Reorder.
+// Feature puts the light in the front window. No cap here; the admin enforces
+// the window-fits-three rule; no snapshot either, same as Reorder.
 func (p projectCRUDService) Feature(id string) (domain.Project, error) {
 	return p.setFeatured(id, true, "featured")
 }
 
-// Unfeature takes the postcard off the mantel.
+// Unfeature takes the light out of the front window.
 func (p projectCRUDService) Unfeature(id string) (domain.Project, error) {
 	return p.setFeatured(id, false, "unfeatured")
 }
@@ -334,12 +416,12 @@ func (p projectCRUDService) setFeatured(id string, featured bool, verb string) (
 		return domain.Project{}, err
 	}
 
-	p.record("postcard \""+project.Title+"\" "+verb, id)
+	p.record("light \""+project.Title+"\" "+verb, id)
 
 	return p.repo.Get(id), nil
 }
 
-// nextOrder places a new postcard after everything already on the rack:
+// nextOrder places a new light after everything already on the rack:
 // max(order)+1 across all projects, published or not. A failed list fails the
 // create; silently defaulting would collide at the front of the rack.
 func (p projectCRUDService) nextOrder() (int, error) {
@@ -392,7 +474,7 @@ func (p projectCRUDService) Restore(id string, revisionID string) (domain.Projec
 		return domain.Project{}, err
 	}
 
-	p.record("postcard \""+saved.Title+"\" rolled back", id)
+	p.record("light \""+saved.Title+"\" rolled back", id)
 
 	return saved, nil
 }
