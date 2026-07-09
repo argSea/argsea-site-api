@@ -73,11 +73,11 @@ type Project struct {
 	PostcardFrom string   `json:"postcardFrom" bson:"postcardFrom,omitempty"`
 	Postmarked   string   `json:"postmarked" bson:"postmarked,omitempty"` // freeform display string
 	Slug         string   `json:"slug" bson:"slug,omitempty"`
-	Image        *string  `json:"image" bson:"image,omitempty"`           // nullable media name (legacy single photo)
-	Stamp        *Stamp   `json:"stamp" bson:"stamp,omitempty"`           // nullable postage decoration (dormant)
-	Light        *Light   `json:"light,omitempty" bson:"light,omitempty"` // nullable: nil burns as the default fixed white
-	Images       []string `json:"images" bson:"images,omitempty"`         // gallery media names, first print leads
-	FirstLit     string   `json:"firstLit" bson:"firstLit,omitempty"`     // freeform year shown in the register
+	Image        *string  `json:"image" bson:"image,omitempty"`       // nullable media name (legacy single photo)
+	Stamp        *Stamp   `json:"stamp" bson:"stamp,omitempty"`       // nullable postage decoration (dormant)
+	Light        *Light   `json:"light" bson:"light,omitempty"`       // nullable: nil burns as the default fixed white
+	Images       []string `json:"images" bson:"images,omitempty"`     // gallery media names, first print leads
+	FirstLit     string   `json:"firstLit" bson:"firstLit,omitempty"` // freeform year shown in the register
 	Status       string   `json:"status" bson:"status,omitempty"`
 	Order        int      `json:"order" bson:"order"`                         // no omitempty: 0 is a real rack position
 	Featured     bool     `json:"featured" bson:"featured"`                   // no omitempty: false must survive a replace write

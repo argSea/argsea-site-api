@@ -132,8 +132,10 @@ func TestLightExtinguishedTrimmedAndCapped(t *testing.T) {
 		t.Fatalf("create with a padded extinguished failed: %v", err)
 	}
 
-	if "2020" != projects.Read(saved.Id).Light.Extinguished {
-		t.Fatalf("expected extinguished trimmed to %q, got %+v", "2020", projects.Read(saved.Id).Light)
+	stored := projects.Read(saved.Id)
+
+	if nil == stored.Light || "2020" != stored.Light.Extinguished {
+		t.Fatalf("expected extinguished trimmed to %q, got %+v", "2020", stored.Light)
 	}
 
 	over := validLight()
@@ -206,8 +208,10 @@ func TestFirstLitTrimmedOnStore(t *testing.T) {
 
 	saved, _ := projects.Create(domain.Project{Title: "Est", FirstLit: "  2024  "})
 
-	if "2024" != projects.Read(saved.Id).FirstLit {
-		t.Fatalf("expected firstLit trimmed on store, got %q", projects.Read(saved.Id).FirstLit)
+	stored := projects.Read(saved.Id)
+
+	if "2024" != stored.FirstLit {
+		t.Fatalf("expected firstLit trimmed on store, got %q", stored.FirstLit)
 	}
 
 	edited, err := projects.Update(domain.Project{Id: saved.Id, Title: "Est", FirstLit: " 2025 "})
@@ -240,6 +244,34 @@ func TestUpdateWithoutLightFieldsClearsThem(t *testing.T) {
 
 	if nil != cleared.Light || 0 != len(cleared.Images) || "" != cleared.FirstLit {
 		t.Fatalf("expected light/images/firstLit cleared, got %+v / %v / %q", cleared.Light, cleared.Images, cleared.FirstLit)
+	}
+}
+
+func TestLifecycleOpsPreserveLightFields(t *testing.T) {
+	projects := newProjects()
+
+	saved, _ := projects.Create(domain.Project{
+		Title:    "Steady",
+		Light:    validLight(),
+		Images:   []string{"one.jpg"},
+		FirstLit: "2024",
+	})
+
+	// lifecycle ops reconstruct from the stored document and touch only
+	// lifecycle fields; the light fields must ride along untouched
+	projects.Publish(saved.Id)
+	projects.Reorder(saved.Id, 5)
+	projects.Feature(saved.Id)
+	projects.Unpublish(saved.Id)
+
+	stored := projects.Read(saved.Id)
+
+	if nil == stored.Light || "flash" != stored.Light.Kind {
+		t.Fatalf("expected the light to survive lifecycle ops, got %+v", stored.Light)
+	}
+
+	if 1 != len(stored.Images) || "2024" != stored.FirstLit {
+		t.Fatalf("expected images/firstLit to survive lifecycle ops, got %v / %q", stored.Images, stored.FirstLit)
 	}
 }
 

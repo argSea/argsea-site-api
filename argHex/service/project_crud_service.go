@@ -105,10 +105,12 @@ func validateLight(light *domain.Light) error {
 		return errors.New("light color must be white, red, or green")
 	}
 
+	// a fixed light holds steady; a period on it would be stored unrendered
 	if "fixed" == light.Kind && 0 != light.Period {
 		return errors.New("light period is only valid on a blinking kind")
 	}
 
+	// every blinking kind needs a cycle the site can actually animate
 	if "fixed" != light.Kind && (2 > light.Period || 30 < light.Period) {
 		return errors.New("light period must be 2 to 30 seconds")
 	}
