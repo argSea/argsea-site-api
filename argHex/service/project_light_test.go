@@ -119,6 +119,104 @@ func TestLightPeriodCoupledToBlinkingKinds(t *testing.T) {
 	}
 }
 
+func TestConventionTimedKindsCarryNoPeriod(t *testing.T) {
+	projects := newProjects()
+
+	// quick and veryquick keep convention time like fixed does; they carry
+	// no period, and a stray one is rejected rather than stored unrendered
+	for _, kind := range []string{"quick", "veryquick"} {
+		light := &domain.Light{Kind: kind, Color: "white", Period: 0}
+
+		if _, err := projects.Create(domain.Project{Title: "Convention", Light: light}); nil != err {
+			t.Fatalf("expected a %s light with period 0 accepted, got %v", kind, err)
+		}
+
+		stray := &domain.Light{Kind: kind, Color: "white", Period: 5}
+
+		if _, err := projects.Create(domain.Project{Title: "Convention stray", Light: stray}); nil == err {
+			t.Fatalf("expected a period on a %s light rejected", kind)
+		}
+	}
+}
+
+func TestMorseLetterCoupledToKind(t *testing.T) {
+	projects := newProjects()
+
+	// the letter normalizes like extinguished trims: the store holds exactly
+	// what was validated
+	morse := &domain.Light{Kind: "morse", Color: "white", Period: 8, Letter: "  a  "}
+
+	saved, err := projects.Create(domain.Project{Title: "Mo", Light: morse})
+
+	if nil != err {
+		t.Fatalf("create with a valid morse light failed: %v", err)
+	}
+
+	stored := projects.Read(saved.Id)
+
+	if nil == stored.Light || "A" != stored.Light.Letter {
+		t.Fatalf("expected the letter normalized to %q, got %+v", "A", stored.Light)
+	}
+
+	cases := map[string]*domain.Light{
+		"morse without a letter":   {Kind: "morse", Color: "white", Period: 8},
+		"morse with two letters":   {Kind: "morse", Color: "white", Period: 8, Letter: "AB"},
+		"morse with a digit":       {Kind: "morse", Color: "white", Period: 8, Letter: "7"},
+		"a letter off morse":       {Kind: "flash", Color: "white", Period: 8, Letter: "A"},
+		"a letter on a fixed kind": {Kind: "fixed", Color: "white", Letter: "A"},
+	}
+
+	for name, light := range cases {
+		if _, err := projects.Create(domain.Project{Title: "Bad " + name, Light: light}); nil == err {
+			t.Fatalf("expected %s rejected", name)
+		}
+	}
+}
+
+func TestMorsePeriodNeedsRoom(t *testing.T) {
+	projects := newProjects()
+
+	// the generic 2-30 band still applies; morse additionally needs room for
+	// its pattern, so 2 and 3 second cycles are rejected
+	for _, ok := range []int{4, 30} {
+		light := &domain.Light{Kind: "morse", Color: "white", Period: ok, Letter: "K"}
+
+		if _, err := projects.Create(domain.Project{Title: "Mo bounds", Light: light}); nil != err {
+			t.Fatalf("expected morse period %d accepted, got %v", ok, err)
+		}
+	}
+
+	for _, bad := range []int{0, 3, 31} {
+		light := &domain.Light{Kind: "morse", Color: "white", Period: bad, Letter: "K"}
+
+		if _, err := projects.Create(domain.Project{Title: "Mo bounds", Light: light}); nil == err {
+			t.Fatalf("expected morse period %d rejected", bad)
+		}
+	}
+}
+
+func TestMorseLightSurvivesLifecycleOps(t *testing.T) {
+	projects := newProjects()
+
+	saved, _ := projects.Create(domain.Project{
+		Title: "Signal",
+		Light: &domain.Light{Kind: "morse", Color: "red", Period: 10, Letter: "K"},
+	})
+
+	// lifecycle ops reconstruct from the stored document; the letter must
+	// ride along untouched like the rest of the light
+	projects.Publish(saved.Id)
+	projects.Reorder(saved.Id, 3)
+	projects.Feature(saved.Id)
+	projects.Unpublish(saved.Id)
+
+	stored := projects.Read(saved.Id)
+
+	if nil == stored.Light || "morse" != stored.Light.Kind || "K" != stored.Light.Letter {
+		t.Fatalf("expected the morse light to survive lifecycle ops, got %+v", stored.Light)
+	}
+}
+
 func TestLightExtinguishedTrimmedAndCapped(t *testing.T) {
 	projects := newProjects()
 

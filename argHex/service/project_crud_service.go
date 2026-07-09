@@ -81,14 +81,23 @@ func validateStamp(stamp *domain.Stamp) error {
 // color select animation names and glow colors rendered into style attributes
 // on the public site, so this enum gate is the injection boundary for light
 // data.
-var lightKinds = map[string]bool{"fixed": true, "flash": true, "occult": true, "iso": true}
+var lightKinds = map[string]bool{
+	"fixed": true, "flash": true, "occult": true, "iso": true,
+	"quick": true, "veryquick": true, "morse": true,
+}
 var lightColors = map[string]bool{"white": true, "red": true, "green": true}
+
+// The kinds whose cycle the keeper sets. Fixed holds steady, and quick and
+// veryquick blink at rates set by convention (roughly 60 and 120 flashes a
+// minute), so a stored period on any of those would sit unrendered.
+var lightPeriodKinds = map[string]bool{"flash": true, "occult": true, "iso": true, "morse": true}
 
 // validateLight normalizes a light in place and checks it against the closed
 // vocabulary. A nil light is valid; the site burns it as the default fixed
-// white. The period is coupled to the blinking kinds the way stamp cents is
-// coupled to the rect shape: a period on a fixed light is rejected rather
-// than silently stored unrendered.
+// white. The period is coupled to the keeper-timed kinds the way stamp cents
+// is coupled to the rect shape: a period on a convention-timed kind is
+// rejected rather than silently stored unrendered. The letter is to morse
+// what text is to the text stamp: required there, meaningless anywhere else.
 func validateLight(light *domain.Light) error {
 	if nil == light {
 		return nil
@@ -96,23 +105,38 @@ func validateLight(light *domain.Light) error {
 
 	// trim before measuring, so the store holds exactly what was validated
 	light.Extinguished = strings.TrimSpace(light.Extinguished)
+	light.Letter = strings.ToUpper(strings.TrimSpace(light.Letter))
 
 	if !lightKinds[light.Kind] {
-		return errors.New("light kind must be one of fixed, flash, occult, iso")
+		return errors.New("light kind must be one of fixed, flash, occult, iso, quick, veryquick, morse")
 	}
 
 	if !lightColors[light.Color] {
 		return errors.New("light color must be white, red, or green")
 	}
 
-	// a fixed light holds steady; a period on it would be stored unrendered
-	if "fixed" == light.Kind && 0 != light.Period {
-		return errors.New("light period is only valid on a blinking kind")
+	// fixed holds steady and quick/veryquick keep convention time; a period
+	// on any of them would be stored unrendered
+	if !lightPeriodKinds[light.Kind] && 0 != light.Period {
+		return errors.New("light period is only valid on flash, occult, iso, or morse")
 	}
 
-	// every blinking kind needs a cycle the site can actually animate
-	if "fixed" != light.Kind && (2 > light.Period || 30 < light.Period) {
+	// every keeper-timed kind needs a cycle the site can actually animate
+	if lightPeriodKinds[light.Kind] && (2 > light.Period || 30 < light.Period) {
 		return errors.New("light period must be 2 to 30 seconds")
+	}
+
+	// a morse letter needs room for its pattern; two seconds cannot fit one
+	if "morse" == light.Kind && 4 > light.Period {
+		return errors.New("light period must be 4 to 30 seconds for morse")
+	}
+
+	if "morse" == light.Kind && (1 != len(light.Letter) || 'A' > light.Letter[0] || 'Z' < light.Letter[0]) {
+		return errors.New("light letter must be a single letter A to Z for morse")
+	}
+
+	if "morse" != light.Kind && "" != light.Letter {
+		return errors.New("light letter is only valid on the morse kind")
 	}
 
 	if 40 < utf8.RuneCountInString(light.Extinguished) {
