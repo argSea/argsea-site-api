@@ -41,15 +41,18 @@ type WallPlacement struct {
 // layer for the same reason as Stamp: they select animation names and glow
 // colors rendered into style attributes on the public site, so the enum gate
 // is the injection boundary. Period is the seconds one full cycle takes for
-// the blinking kinds; a fixed light has none. Extinguished is a freeform year:
-// any non-empty value means the light is dark (an abandoned project) while
-// staying on the list. No omitempty on Period/Extinguished: 0 and "" are
-// meaningful (fixed / still burning) and clearing them must survive a replace
-// write.
+// the kinds whose rhythm the keeper sets; a fixed light has none, and quick
+// and veryquick blink at rates set by convention. Letter is the single
+// character a morse light spells, empty on every other kind. Extinguished is
+// a freeform year: any non-empty value means the light is dark (an abandoned
+// project) while staying on the list. No omitempty on
+// Period/Extinguished/Letter: 0 and "" are meaningful (fixed / still burning
+// / not morse) and clearing them must survive a replace write.
 type Light struct {
-	Kind         string `json:"kind" bson:"kind,omitempty"`   // fixed | flash | occult | iso
+	Kind         string `json:"kind" bson:"kind,omitempty"`   // fixed | flash | occult | iso | quick | veryquick | morse
 	Color        string `json:"color" bson:"color,omitempty"` // white | red | green
 	Period       int    `json:"period" bson:"period"`
+	Letter       string `json:"letter" bson:"letter"`
 	Extinguished string `json:"extinguished" bson:"extinguished"`
 }
 
