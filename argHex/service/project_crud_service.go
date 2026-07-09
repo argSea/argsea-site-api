@@ -81,10 +81,7 @@ func validateStamp(stamp *domain.Stamp) error {
 // color select animation names and glow colors rendered into style attributes
 // on the public site, so this enum gate is the injection boundary for light
 // data.
-var lightKinds = map[string]bool{
-	"fixed": true, "flash": true, "occult": true, "iso": true,
-	"quick": true, "veryquick": true, "morse": true,
-}
+var lightKinds = map[string]bool{"fixed": true, "flash": true, "occult": true, "iso": true, "quick": true, "veryquick": true, "morse": true}
 var lightColors = map[string]bool{"white": true, "red": true, "green": true}
 
 // The kinds whose cycle the keeper sets. Fixed holds steady, and quick and
@@ -121,14 +118,14 @@ func validateLight(light *domain.Light) error {
 		return errors.New("light period is only valid on flash, occult, iso, or morse")
 	}
 
-	// every keeper-timed kind needs a cycle the site can actually animate
-	if lightPeriodKinds[light.Kind] && (2 > light.Period || 30 < light.Period) {
-		return errors.New("light period must be 2 to 30 seconds")
+	// a morse letter needs room for its pattern; two seconds cannot fit one
+	if "morse" == light.Kind && (4 > light.Period || 30 < light.Period) {
+		return errors.New("light period must be 4 to 30 seconds for morse")
 	}
 
-	// a morse letter needs room for its pattern; two seconds cannot fit one
-	if "morse" == light.Kind && 4 > light.Period {
-		return errors.New("light period must be 4 to 30 seconds for morse")
+	// every other keeper-timed kind needs a cycle the site can actually animate
+	if "morse" != light.Kind && lightPeriodKinds[light.Kind] && (2 > light.Period || 30 < light.Period) {
+		return errors.New("light period must be 2 to 30 seconds")
 	}
 
 	if "morse" == light.Kind && (1 != len(light.Letter) || 'A' > light.Letter[0] || 'Z' < light.Letter[0]) {
