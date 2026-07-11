@@ -19,7 +19,7 @@ func NewActivityMuxAdapter(activity in_port.ActivityService, auth *WebAuth, rout
 		auth:     auth,
 	}
 
-	// the ship's log: admin dashboard data, so it is gated behind auth
+	// the keeper's log: admin dashboard data, so it is gated behind auth
 	router.HandleFunc("", a.Recent).Methods("GET")
 	router.HandleFunc("/", a.Recent).Methods("GET")
 
