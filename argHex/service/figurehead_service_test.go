@@ -267,7 +267,7 @@ func TestEveryMutationWritesAShipsLogLine(t *testing.T) {
 		}
 
 		if !found {
-			t.Fatalf("no %q line reached the ship's log: %+v", want, entries)
+			t.Fatalf("no %q line reached the keeper's log: %+v", want, entries)
 		}
 	}
 }

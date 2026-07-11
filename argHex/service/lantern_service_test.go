@@ -124,7 +124,7 @@ func TestHoistSuccessSwapsLiveLink(t *testing.T) {
 		t.Fatalf("live generation does not contain the built site: %v", statErr)
 	}
 
-	// start, then success; both in the ship's log
+	// start, then success; both in the keeper's log
 	entries, _ := activity.Recent(10)
 
 	if 2 != len(entries) || domain.EntityLantern != entries[0].EntityType {
@@ -173,7 +173,7 @@ func TestHoistBuildFailureLeavesLiveLinkUntouched(t *testing.T) {
 	entries, _ := activity.Recent(10)
 
 	if 2 != len(entries) || !strings.Contains(entries[0].Message, "failed") {
-		t.Fatalf("expected a failure entry in the ship's log, got %+v", entries)
+		t.Fatalf("expected a failure entry in the keeper's log, got %+v", entries)
 	}
 }
 
