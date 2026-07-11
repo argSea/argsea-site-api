@@ -9,6 +9,34 @@ import (
 	"github.com/argSea/argsea-site-api/argHex/out_port"
 )
 
+// The marker vocabulary is closed for the same reason as the light's kind:
+// it selects a headstone graphic rendered on the public graveyard, so this
+// enum gate is the injection boundary for marker data.
+var hobbyMarkers = map[string]bool{"stone": true, "sticks": true, "driftwood": true, "cairn": true, "buoy": true, "lamp": true}
+
+// validateMarker checks marker against the closed vocabulary. An empty marker
+// is valid; the site falls back to its default headstone.
+func validateMarker(marker string) error {
+	if "" == marker {
+		return nil
+	}
+
+	if !hobbyMarkers[marker] {
+		return errors.New("marker must be one of stone, sticks, driftwood, cairn, buoy, lamp")
+	}
+
+	return nil
+}
+
+// validateWear checks wear is a fraction: 0 is a fresh stone, 1 is worn smooth.
+func validateWear(wear float64) error {
+	if 0 > wear || 1 < wear {
+		return errors.New("wear must be between 0 and 1")
+	}
+
+	return nil
+}
+
 type hobbyCRUDService struct {
 	repo     out_port.HobbyRepo
 	activity in_port.ActivityService
@@ -30,6 +58,16 @@ func (h hobbyCRUDService) Read(id string) domain.Hobby {
 }
 
 func (h hobbyCRUDService) Create(hobby domain.Hobby) (domain.Hobby, error) {
+	// an invalid marker or wear never reaches the store; reject before
+	// anything is written
+	if err := validateMarker(hobby.Marker); nil != err {
+		return domain.Hobby{}, err
+	}
+
+	if err := validateWear(hobby.Wear); nil != err {
+		return domain.Hobby{}, err
+	}
+
 	now := nowStamp()
 
 	hobby.Id = ""
@@ -82,6 +120,14 @@ func (h hobbyCRUDService) Update(hobby domain.Hobby) (domain.Hobby, error) {
 
 	if "" == existing.Id {
 		return domain.Hobby{}, errors.New("hobby not found")
+	}
+
+	if err := validateMarker(hobby.Marker); nil != err {
+		return domain.Hobby{}, err
+	}
+
+	if err := validateWear(hobby.Wear); nil != err {
+		return domain.Hobby{}, err
 	}
 
 	hobby.CreatedAt = existing.CreatedAt
