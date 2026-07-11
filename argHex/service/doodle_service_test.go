@@ -78,7 +78,7 @@ func TestDeleteMissingDoodleErrors(t *testing.T) {
 	}
 }
 
-func TestEveryDoodleMutationWritesAShipsLogLine(t *testing.T) {
+func TestEveryDoodleMutationWritesAKeepersLogLine(t *testing.T) {
 	doodles, activity := newDoodles(t)
 
 	draft, _ := doodles.Create(domain.Doodle{Name: "anchor"})

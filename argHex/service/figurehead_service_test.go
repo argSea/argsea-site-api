@@ -241,7 +241,7 @@ func TestCreateRejectsUnknownPoseAndShapeType(t *testing.T) {
 	}
 }
 
-func TestEveryMutationWritesAShipsLogLine(t *testing.T) {
+func TestEveryMutationWritesAKeepersLogLine(t *testing.T) {
 	figureheads, activity := newFigureheads(t)
 
 	draft, _ := figureheads.Create(domain.CatDesign{Pose: domain.PoseLying, Label: "oilskin"})
