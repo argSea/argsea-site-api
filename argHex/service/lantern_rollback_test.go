@@ -53,7 +53,7 @@ func TestRollbackSwapsToThePreviousGeneration(t *testing.T) {
 	entries, _ := activity.Recent(10)
 
 	if 1 != len(entries) || !strings.Contains(entries[0].Message, "rolled back") {
-		t.Fatalf("expected a rolled-back entry in the ship's log, got %+v", entries)
+		t.Fatalf("expected a rolled-back entry in the keeper's log, got %+v", entries)
 	}
 }
 

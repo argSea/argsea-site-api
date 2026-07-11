@@ -123,7 +123,7 @@ func (l *lanternService) Rollback() (domain.LanternStatus, error) {
 		return status, err
 	}
 
-	// outside the lock, like every other ship's-log write
+	// outside the lock, like every other keeper's-log write
 	l.record("lantern rolled back")
 
 	return status, nil
@@ -174,7 +174,7 @@ func (l *lanternService) run() {
 		log.Printf("lantern could not persist lastHoistedAt: %v\n", saveErr)
 	}
 
-	// the ship's-log entry lands before the terminal status is visible, so
+	// the keeper's-log entry lands before the terminal status is visible, so
 	// whoever sees "succeeded" also sees the log line
 	l.record("lantern hoisted")
 
@@ -209,7 +209,7 @@ func (l *lanternService) fail(output string, message string) {
 	l.mu.Unlock()
 }
 
-// record writes a ship's-log entry; a logging failure never blocks the hoist.
+// record writes a keeper's-log entry; a logging failure never blocks the hoist.
 func (l *lanternService) record(message string) {
 	if err := l.activity.Record(message, domain.EntityLantern, ""); nil != err {
 		log.Printf("activity record failed for lantern: %v\n", err)

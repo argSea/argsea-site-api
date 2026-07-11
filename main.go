@@ -159,7 +159,7 @@ func main() {
 	userAuthService := service.NewJWTAuthService(jSecret)
 	webAuth := in_adapter.NewWebAuth(userAuthService, jSecret, cookieDomain)
 
-	// shared history + ship's log: projects and notes snapshot into revisions,
+	// shared history + keeper's log: projects and notes snapshot into revisions,
 	// every content mutation records an activity entry
 	log.Println("Initializing revisions and activity log")
 	revisionMordor := stores.NewMordor(mongo_db.DB.Collection(revisionTable), context.Background())

@@ -34,7 +34,7 @@ func NewLanternMuxAdapter(lantern in_port.LanternService, auth *WebAuth, router 
 	return &a
 }
 
-// Status is what the admin polls while the boat is out.
+// Status is what the admin polls while the lantern is going up.
 func (a lanternMuxAdapter) Status(w http.ResponseWriter, r *http.Request) {
 	if !requireAdmin(a.auth, w, r) {
 		return

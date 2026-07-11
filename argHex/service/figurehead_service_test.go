@@ -241,7 +241,7 @@ func TestCreateRejectsUnknownPoseAndShapeType(t *testing.T) {
 	}
 }
 
-func TestEveryMutationWritesAShipsLogLine(t *testing.T) {
+func TestEveryMutationWritesAKeepersLogLine(t *testing.T) {
 	figureheads, activity := newFigureheads(t)
 
 	draft, _ := figureheads.Create(domain.CatDesign{Pose: domain.PoseLying, Label: "oilskin"})
@@ -267,7 +267,7 @@ func TestEveryMutationWritesAShipsLogLine(t *testing.T) {
 		}
 
 		if !found {
-			t.Fatalf("no %q line reached the ship's log: %+v", want, entries)
+			t.Fatalf("no %q line reached the keeper's log: %+v", want, entries)
 		}
 	}
 }

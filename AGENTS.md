@@ -5,6 +5,13 @@ The argSea portfolio/blog backend API: a Go HTTP service exposing portfolio and
 blog resources. It owns the API surface and its persistence; it is not the
 frontend/site and does not own deployment infrastructure.
 
+## Voice: we are a lighthouse
+
+Copy and names speak as keepers at the light, first person. Ships and
+boats exist only as scenery observed from the station. Anything
+user-visible this API serves must survive the who's-speaking test. Full
+contract and vocabulary: caravan-meta `docs/argsea-identity.md`.
+
 ## Instruction Priority
 Resolve instructions in this order:
 1. an external session path assigned by the caravan primary integrator

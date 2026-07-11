@@ -30,7 +30,7 @@ type mediaService struct {
 }
 
 // NewMediaService wires the darkroom onto its two halves: files on disk,
-// metadata in mongo, plus the ship's log.
+// metadata in mongo, plus the keeper's log.
 func NewMediaService(mediaRepo out_port.MediaRepo, meta out_port.MediaMetaRepo, activity in_port.ActivityService) in_port.MediaService {
 	return mediaService{
 		mediaRepo: mediaRepo,

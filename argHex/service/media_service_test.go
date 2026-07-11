@@ -50,7 +50,7 @@ func TestCreateMediaWritesFileAndMetadata(t *testing.T) {
 	entries, _ := activity.Recent(10)
 
 	if 1 != len(entries) {
-		t.Fatalf("expected an upload entry in the ship's log, got %+v", entries)
+		t.Fatalf("expected an upload entry in the keeper's log, got %+v", entries)
 	}
 }
 

@@ -5,7 +5,7 @@ import "github.com/argSea/argsea-site-api/argHex/domain"
 // The seeded v1 designs are the two shipped harbor cats, translated shape for
 // shape from the site's HarborCat island (design/HarborCat.dc.html and the
 // approved lying hybrid). Every d string and coordinate is byte-identical to
-// the shipped SVG; these must render exactly the cat that sails today, or
+// the shipped SVG; these must render exactly the cat that is live today, or
 // "go back to v1" goes back to the wrong cat. Circles become ellipses with
 // rx = ry: the Shape vocabulary has no circle.
 

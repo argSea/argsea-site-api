@@ -11,7 +11,7 @@ import (
 )
 
 // newRack wires a project service like newProjects but also hands back the
-// activity seam, so the rack tests can assert what lands in the ship's log.
+// activity seam, so the rack tests can assert what lands in the keeper's log.
 func newRack() (in_port.ProjectCRUDService, in_port.ActivityService) {
 	revisions := service.NewRevisionService(out_adapter.NewRevisionFakeOutAdapter())
 	activity := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())
@@ -91,7 +91,7 @@ func TestReorderAndFeatureSkipSnapshotsButLog(t *testing.T) {
 		t.Fatalf("reorder/feature must not snapshot, expected 1 revision, got %d", len(revs))
 	}
 
-	// but every move lands in the ship's log: create + reorder + feature + unfeature
+	// but every move lands in the keeper's log: create + reorder + feature + unfeature
 	entries, _ := activity.Recent(10)
 
 	if 4 != len(entries) {
@@ -109,7 +109,7 @@ func TestReorderAndFeatureSkipSnapshotsButLog(t *testing.T) {
 		}
 
 		if !found {
-			t.Fatalf("expected a %q entry in the ship's log, got %+v", verb, entries)
+			t.Fatalf("expected a %q entry in the keeper's log, got %+v", verb, entries)
 		}
 	}
 }
