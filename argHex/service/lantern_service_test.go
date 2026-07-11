@@ -231,7 +231,7 @@ func TestHoistPrunesOldGenerationsButNeverTheLiveOne(t *testing.T) {
 
 	waitTerminal(t, lantern)
 
-	// the stage consumed dist; rebuild it for the second voyage
+	// the stage consumed dist; rebuild it for the second hoist
 	seedDist(t, filepath.Join(filepath.Dir(releasesDir), "site"))
 
 	if _, err := lantern.Hoist(); nil != err {
