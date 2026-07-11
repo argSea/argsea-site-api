@@ -168,17 +168,19 @@ func main() {
 	activityService := service.NewActivityService(out_adapter.NewActivityMongoAdapter(activityMordor))
 	in_adapter.NewActivityMuxAdapter(activityService, webAuth, activityRouter)
 
+	// notes (writing desk), wired ahead of projects: the rack's noteIds tie
+	// validation needs a read-only handle to the notes collection
+	log.Println("Initializing note")
+	noteMordor := stores.NewMordor(mongo_db.DB.Collection(noteTable), context.Background())
+	noteRepo := out_adapter.NewNoteMongoAdapter(noteMordor)
+	noteService := service.NewNoteCRUDService(noteRepo, revisionService, activityService)
+	in_adapter.NewNoteMuxAdapter(noteService, webAuth, noteRouter)
+
 	// projects (postcards)
 	log.Println("Initializing project")
 	projectMordor := stores.NewMordor(mongo_db.DB.Collection(projectTable), context.Background())
-	projectService := service.NewProjectCRUDService(out_adapter.NewProjectMongoAdapter(projectMordor), revisionService, activityService)
+	projectService := service.NewProjectCRUDService(out_adapter.NewProjectMongoAdapter(projectMordor), noteRepo, revisionService, activityService)
 	in_adapter.NewProjectMuxAdapter(projectService, webAuth, projRouter)
-
-	// notes (writing desk)
-	log.Println("Initializing note")
-	noteMordor := stores.NewMordor(mongo_db.DB.Collection(noteTable), context.Background())
-	noteService := service.NewNoteCRUDService(out_adapter.NewNoteMongoAdapter(noteMordor), revisionService, activityService)
-	in_adapter.NewNoteMuxAdapter(noteService, webAuth, noteRouter)
 
 	// hobbies (graveyard)
 	log.Println("Initializing hobby")

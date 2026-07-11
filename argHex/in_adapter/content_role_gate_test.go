@@ -28,8 +28,9 @@ func newContentGateRouter(t *testing.T) (in_port.AuthService, string, *mux.Route
 	revisions := service.NewRevisionService(out_adapter.NewRevisionFakeOutAdapter())
 	activity := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())
 
-	projects := service.NewProjectCRUDService(out_adapter.NewProjectFakeOutAdapter(), revisions, activity)
-	notes := service.NewNoteCRUDService(out_adapter.NewNoteFakeOutAdapter(), revisions, activity)
+	noteRepo := out_adapter.NewNoteFakeOutAdapter()
+	projects := service.NewProjectCRUDService(out_adapter.NewProjectFakeOutAdapter(), noteRepo, revisions, activity)
+	notes := service.NewNoteCRUDService(noteRepo, revisions, activity)
 	media := service.NewMediaService(
 		out_adapter.NewMediaWebstoreAdapter(t.TempDir()+string(filepath.Separator), "/media/images"),
 		out_adapter.NewMediaMetaFakeOutAdapter(),

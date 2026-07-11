@@ -282,22 +282,22 @@ func TestImagesTrimmedAndEmptyRejected(t *testing.T) {
 	}
 }
 
-func TestImagesCappedAtTwelve(t *testing.T) {
+func TestImagesCappedAtSix(t *testing.T) {
 	projects := newProjects()
 
-	twelve := make([]string, 12)
-	for i := range twelve {
-		twelve[i] = "print.jpg"
+	six := make([]string, 6)
+	for i := range six {
+		six[i] = "print.jpg"
 	}
 
-	if _, err := projects.Create(domain.Project{Title: "Full album", Images: twelve}); nil != err {
-		t.Fatalf("expected 12 prints accepted, got %v", err)
+	if _, err := projects.Create(domain.Project{Title: "Full album", Images: six}); nil != err {
+		t.Fatalf("expected 6 prints accepted, got %v", err)
 	}
 
-	thirteen := append(twelve, "one-too-many.jpg")
+	seven := append(six, "one-too-many.jpg")
 
-	if _, err := projects.Create(domain.Project{Title: "Overfull", Images: thirteen}); nil == err {
-		t.Fatalf("expected 13 prints rejected")
+	if _, err := projects.Create(domain.Project{Title: "Overfull", Images: seven}); nil == err {
+		t.Fatalf("expected 7 prints rejected")
 	}
 }
 

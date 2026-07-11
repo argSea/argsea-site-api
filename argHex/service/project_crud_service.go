@@ -145,11 +145,12 @@ func validateLight(light *domain.Light) error {
 }
 
 // validateImages trims gallery entries in place. An empty name would 404 on
-// the public site, so it is rejected rather than silently dropped; the cap is
-// a backstop against a runaway gallery, not a design constraint.
+// the public site, so it is rejected rather than silently dropped; the cap
+// matches the mock's six-print rail, first entry the entry photo by
+// convention.
 func validateImages(images []string) error {
-	if 12 < len(images) {
-		return errors.New("images is capped at 12 prints")
+	if 6 < len(images) {
+		return errors.New("images is capped at 6 prints")
 	}
 
 	for i, name := range images {
@@ -163,18 +164,88 @@ func validateImages(images []string) error {
 	return nil
 }
 
+// validateFacts trims each pair in place and checks the cap. A pair with
+// either half empty would render a blank cell in the stat strip, so it is
+// rejected rather than silently stored, the same way an empty gallery name is.
+func validateFacts(facts []domain.ProjectFact) error {
+	if 6 < len(facts) {
+		return errors.New("facts is capped at 6 entries")
+	}
+
+	for i := range facts {
+		facts[i].Heading = strings.TrimSpace(facts[i].Heading)
+		facts[i].Fact = strings.TrimSpace(facts[i].Fact)
+
+		if "" == facts[i].Heading || "" == facts[i].Fact {
+			return errors.New("facts entries must have both a heading and a fact")
+		}
+	}
+
+	return nil
+}
+
 type projectCRUDService struct {
 	repo      out_port.ProjectRepo
+	notes     out_port.NoteRepo
 	revisions in_port.RevisionService
 	activity  in_port.ActivityService
 }
 
-func NewProjectCRUDService(repo out_port.ProjectRepo, revisions in_port.RevisionService, activity in_port.ActivityService) in_port.ProjectCRUDService {
+// NewProjectCRUDService wires the rack onto its repo, a read-only handle to
+// notes for the noteIds existence check, and the shared revision/activity
+// plumbing.
+func NewProjectCRUDService(repo out_port.ProjectRepo, notes out_port.NoteRepo, revisions in_port.RevisionService, activity in_port.ActivityService) in_port.ProjectCRUDService {
 	return projectCRUDService{
 		repo:      repo,
+		notes:     notes,
 		revisions: revisions,
 		activity:  activity,
 	}
+}
+
+// validateNoteIds checks every tied id against the notes collection. An
+// unknown id would tie a light to a journal entry that doesn't exist, so it
+// is rejected rather than silently stored.
+func (p projectCRUDService) validateNoteIds(noteIds []string) error {
+	for _, id := range noteIds {
+		if "" == p.notes.Get(id).Id {
+			return errors.New("noteIds must reference an existing note: unknown id " + id)
+		}
+	}
+
+	return nil
+}
+
+// validateSlugForCaseStudy enforces the slug contract for a light with a case
+// study: the public route is /projects/<slug>, so a case study without a slug
+// is unreachable and a colliding slug is ambiguous. A project without a case
+// study is untouched; the slug field is free until then.
+func (p projectCRUDService) validateSlugForCaseStudy(project domain.Project) error {
+	if "" == project.CaseStudy {
+		return nil
+	}
+
+	if "" == project.Slug {
+		return errors.New("slug is required when caseStudy is set")
+	}
+
+	others, err := p.repo.List(false, 0)
+
+	if nil != err {
+		return err
+	}
+
+	for _, other := range others {
+		if other.Id == project.Id {
+			continue
+		}
+
+		if strings.EqualFold(other.Slug, project.Slug) {
+			return errors.New("slug must be unique across projects")
+		}
+	}
+
+	return nil
 }
 
 // List returns the rack in display order: order asc, ties broken by createdAt
@@ -203,6 +274,11 @@ func (p projectCRUDService) Read(id string) domain.Project {
 }
 
 func (p projectCRUDService) Create(project domain.Project) (domain.Project, error) {
+	// a create carries no real id yet; clear whatever the caller sent before
+	// the slug check runs, so a client-supplied id can never forge a
+	// self-exclusion against an existing project's slug
+	project.Id = ""
+
 	// an invalid stamp or light never reaches the store; reject before
 	// anything is written
 	if err := validateStamp(project.Stamp); nil != err {
@@ -217,10 +293,21 @@ func (p projectCRUDService) Create(project domain.Project) (domain.Project, erro
 		return domain.Project{}, err
 	}
 
+	if err := validateFacts(project.Facts); nil != err {
+		return domain.Project{}, err
+	}
+
+	if err := p.validateNoteIds(project.NoteIds); nil != err {
+		return domain.Project{}, err
+	}
+
+	if err := p.validateSlugForCaseStudy(project); nil != err {
+		return domain.Project{}, err
+	}
+
 	now := nowStamp()
 
 	// body is rich text; it lives in the store already sanitized
-	project.Id = ""
 	project.Body = utility.SanitizeHTML(project.Body)
 	project.FirstLit = strings.TrimSpace(project.FirstLit)
 
@@ -284,6 +371,18 @@ func (p projectCRUDService) Update(project domain.Project) (domain.Project, erro
 	}
 
 	if err := validateImages(project.Images); nil != err {
+		return domain.Project{}, err
+	}
+
+	if err := validateFacts(project.Facts); nil != err {
+		return domain.Project{}, err
+	}
+
+	if err := p.validateNoteIds(project.NoteIds); nil != err {
+		return domain.Project{}, err
+	}
+
+	if err := p.validateSlugForCaseStudy(project); nil != err {
 		return domain.Project{}, err
 	}
 
