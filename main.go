@@ -132,6 +132,7 @@ func main() {
 	mediaTable := "media"
 	catDesignTable := "catDesigns"
 	doodleTable := "doodles"
+	carvingTable := "carvings"
 
 	// routers
 	userRouter := router.PathPrefix("/1/user").Subrouter()
@@ -145,6 +146,7 @@ func main() {
 	mediaRouter := router.PathPrefix("/1/media").Subrouter()
 	figureheadRouter := router.PathPrefix("/1/figurehead").Subrouter()
 	doodleRouter := router.PathPrefix("/1/doodle").Subrouter()
+	carvingRouter := router.PathPrefix("/1/carving").Subrouter()
 
 	// the session cookie's domain is deploy-specific (prod vs a local vhost);
 	// configurable, with the historical hardcoded value as the default
@@ -224,6 +226,21 @@ func main() {
 	}
 
 	in_adapter.NewFigureheadMuxAdapter(figureheadService, webAuth, figureheadRouter)
+
+	// the carving shop: raw-svg carvings bolted onto site spots; the seed
+	// plants the seven shipped v1 carvings, one per spot, into an empty
+	// collection so every spot always has a v1 to bolt back to
+	log.Println("Initializing carving")
+	carvingMordor := stores.NewMordor(mongo_db.DB.Collection(carvingTable), context.Background())
+	carvingService := service.NewCarvingService(out_adapter.NewCarvingMongoAdapter(carvingMordor), activityService)
+
+	if err := carvingService.Seed(); nil != err {
+		// the API stays up without the seed (the shop endpoints still work);
+		// the next boot retries
+		log.Printf("carving seed failed: %v\n", err)
+	}
+
+	in_adapter.NewCarvingMuxAdapter(carvingService, webAuth, carvingRouter)
 
 	// doodles (marginalia sketches for the Keeper's Journal): structured
 	// shapes only, no publish/seed/pose lifecycle
