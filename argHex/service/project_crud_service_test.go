@@ -17,7 +17,7 @@ func newProjects() in_port.ProjectCRUDService {
 	revisions := service.NewRevisionService(out_adapter.NewRevisionFakeOutAdapter())
 	activity := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())
 
-	return service.NewProjectCRUDService(out_adapter.NewProjectFakeOutAdapter(), revisions, activity)
+	return service.NewProjectCRUDService(out_adapter.NewProjectFakeOutAdapter(), out_adapter.NewNoteFakeOutAdapter(), revisions, activity)
 }
 
 func TestCreateSnapshotsAndDefaultsToDraft(t *testing.T) {

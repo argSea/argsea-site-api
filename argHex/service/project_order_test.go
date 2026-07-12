@@ -16,7 +16,7 @@ func newRack() (in_port.ProjectCRUDService, in_port.ActivityService) {
 	revisions := service.NewRevisionService(out_adapter.NewRevisionFakeOutAdapter())
 	activity := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())
 
-	return service.NewProjectCRUDService(out_adapter.NewProjectFakeOutAdapter(), revisions, activity), activity
+	return service.NewProjectCRUDService(out_adapter.NewProjectFakeOutAdapter(), out_adapter.NewNoteFakeOutAdapter(), revisions, activity), activity
 }
 
 func TestCreateAssignsNextOrder(t *testing.T) {

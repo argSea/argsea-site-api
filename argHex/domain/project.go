@@ -56,36 +56,52 @@ type Light struct {
 	Extinguished string `json:"extinguished" bson:"extinguished"`
 }
 
+// ProjectFact is one heading/fact pair in a light's stat strip. Max 6 per
+// project, enforced on write like the stamp enum gate; a pair with either
+// half empty is meaningless and rejects.
+type ProjectFact struct {
+	Heading string `json:"heading" bson:"heading"`
+	Fact    string `json:"fact" bson:"fact"`
+}
+
 // Project is a light on the keeper's coast: the portfolio entry rendered as a
 // navigational light on the public site (formerly a "postcard from
 // production"). Body is long-form rich text stored as a sanitized HTML string
-// (banked decision). Images is the entry's photo gallery, first print leads;
-// Image is the postcard-era single photo the site falls back to when Images
-// is empty. PostcardTo/PostcardFrom/Postmarked/Stamp are dormant postcard-era
-// fields: no longer written by the admin, preserved so old documents and
-// revisions stay readable.
+// (banked decision). Images is the entry's photo gallery, first entry is the
+// entry photo by convention; Image is the postcard-era single photo the site
+// falls back to when Images is empty. CaseStudy is raw markdown in the
+// keeper's dialect, stored verbatim (not sanitized like Body: single-admin
+// authoring, and the site renders it at build time). NoteIds ties journal
+// entries to this light by stable Note id. Flagship marks a light for the
+// hero's flagship-plus-two window. PostcardTo/PostcardFrom/Postmarked/Stamp
+// are dormant postcard-era fields: no longer written by the admin, preserved
+// so old documents and revisions stay readable.
 type Project struct {
-	Id           string   `json:"id" bson:"_id,omitempty"`
-	Title        string   `json:"title" bson:"title,omitempty"`
-	Category     string   `json:"category" bson:"category,omitempty"` // backend | games | this website | tinkering
-	Tags         []string `json:"tags" bson:"tags,omitempty"`
-	ShortDesc    string   `json:"shortDesc" bson:"shortDesc,omitempty"` // "front of card"
-	Body         string   `json:"body" bson:"body,omitempty"`           // sanitized HTML long-form
-	Moral        string   `json:"moral" bson:"moral,omitempty"`
-	PostcardTo   string   `json:"postcardTo" bson:"postcardTo,omitempty"`
-	PostcardFrom string   `json:"postcardFrom" bson:"postcardFrom,omitempty"`
-	Postmarked   string   `json:"postmarked" bson:"postmarked,omitempty"` // freeform display string
-	Slug         string   `json:"slug" bson:"slug,omitempty"`
-	Image        *string  `json:"image" bson:"image,omitempty"`       // nullable media name (legacy single photo)
-	Stamp        *Stamp   `json:"stamp" bson:"stamp,omitempty"`       // nullable postage decoration (dormant)
-	Light        *Light   `json:"light" bson:"light,omitempty"`       // nullable: nil burns as the default fixed white
-	Images       []string `json:"images" bson:"images,omitempty"`     // gallery media names, first print leads
-	FirstLit     string   `json:"firstLit" bson:"firstLit,omitempty"` // freeform year shown in the register
-	Status       string   `json:"status" bson:"status,omitempty"`
-	Order        int      `json:"order" bson:"order"`                         // no omitempty: 0 is a real rack position
-	Featured     bool     `json:"featured" bson:"featured"`                   // no omitempty: false must survive a replace write
-	PublishedAt  string   `json:"publishedAt" bson:"publishedAt"`             // no omitempty: unpublish must clear it
-	WallPos      *WallPos `json:"wallPos,omitempty" bson:"wallPos,omitempty"` // nullable: nil means not yet placed on the wall
-	CreatedAt    string   `json:"createdAt" bson:"createdAt,omitempty"`
-	UpdatedAt    string   `json:"updatedAt" bson:"updatedAt,omitempty"`
+	Id           string        `json:"id" bson:"_id,omitempty"`
+	Title        string        `json:"title" bson:"title,omitempty"`
+	Category     string        `json:"category" bson:"category,omitempty"` // backend | games | this website | tinkering
+	Tags         []string      `json:"tags" bson:"tags,omitempty"`
+	ShortDesc    string        `json:"shortDesc" bson:"shortDesc,omitempty"` // "front of card"
+	Body         string        `json:"body" bson:"body,omitempty"`           // sanitized HTML long-form
+	Moral        string        `json:"moral" bson:"moral,omitempty"`
+	PostcardTo   string        `json:"postcardTo" bson:"postcardTo,omitempty"`
+	PostcardFrom string        `json:"postcardFrom" bson:"postcardFrom,omitempty"`
+	Postmarked   string        `json:"postmarked" bson:"postmarked,omitempty"` // freeform display string
+	Slug         string        `json:"slug" bson:"slug,omitempty"`             // required + unique (case-insensitive) once caseStudy is set; public route /projects/<slug>
+	Image        *string       `json:"image" bson:"image,omitempty"`           // nullable media name (legacy single photo)
+	Stamp        *Stamp        `json:"stamp" bson:"stamp,omitempty"`           // nullable postage decoration (dormant)
+	Light        *Light        `json:"light" bson:"light,omitempty"`           // nullable: nil burns as the default fixed white
+	Images       []string      `json:"images" bson:"images,omitempty"`         // gallery media names, capped at 6, first entry is the entry photo
+	FirstLit     string        `json:"firstLit" bson:"firstLit,omitempty"`     // freeform year shown in the register
+	Facts        []ProjectFact `json:"facts" bson:"facts,omitempty"`           // stat strip, capped at 6 pairs
+	CaseStudy    string        `json:"caseStudy" bson:"caseStudy,omitempty"`   // raw markdown, stored verbatim
+	NoteIds      []string      `json:"noteIds" bson:"noteIds,omitempty"`       // tied journal entries, by stable Note id
+	Flagship     bool          `json:"flagship" bson:"flagship"`               // no omitempty: false must survive a replace write
+	Status       string        `json:"status" bson:"status,omitempty"`
+	Order        int           `json:"order" bson:"order"`                         // no omitempty: 0 is a real rack position
+	Featured     bool          `json:"featured" bson:"featured"`                   // no omitempty: false must survive a replace write
+	PublishedAt  string        `json:"publishedAt" bson:"publishedAt"`             // no omitempty: unpublish must clear it
+	WallPos      *WallPos      `json:"wallPos,omitempty" bson:"wallPos,omitempty"` // nullable: nil means not yet placed on the wall
+	CreatedAt    string        `json:"createdAt" bson:"createdAt,omitempty"`
+	UpdatedAt    string        `json:"updatedAt" bson:"updatedAt,omitempty"`
 }

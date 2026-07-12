@@ -26,7 +26,7 @@ func newProjectRouter(t *testing.T) (string, string, string, *mux.Router) {
 
 	revisions := service.NewRevisionService(out_adapter.NewRevisionFakeOutAdapter())
 	activity := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())
-	projects := service.NewProjectCRUDService(out_adapter.NewProjectFakeOutAdapter(), revisions, activity)
+	projects := service.NewProjectCRUDService(out_adapter.NewProjectFakeOutAdapter(), out_adapter.NewNoteFakeOutAdapter(), revisions, activity)
 
 	draft, err := projects.Create(domain.Project{Title: "Draft card"})
 
