@@ -100,6 +100,49 @@ func (m *Mordor) GetAll(limit int64, offset int64, sort interface{}, decoder int
 	return count, nil
 }
 
+// Find runs a caller-built filter with the same limit/offset/sort contract the
+// other reads share. It exists for reads whose match is richer than GetMany's
+// single-field equality, like a date-range window. A limit of 0 means no limit.
+func (m *Mordor) Find(filter interface{}, limit int64, offset int64, sort interface{}, decoder interface{}) (int64, error) {
+	if nil == m.collection {
+		return 0, errors.New("connection not setup")
+	}
+
+	count, cErr := m.collection.EstimatedDocumentCount(m.ctx, nil)
+
+	if nil != cErr {
+		// count is advisory
+		count = 0
+	}
+
+	findOpts := options.Find()
+	findOpts.SetLimit(limit)
+	findOpts.SetSkip(offset)
+	findOpts.SetSort(sort)
+	cursor, err := m.collection.Find(m.ctx, filter, findOpts)
+
+	if nil != err {
+		return 0, err
+	}
+
+	cursor.All(m.ctx, decoder)
+
+	return count, nil
+}
+
+// CreateIndexes lands the given indexes on the collection. Mongo skips any that
+// already exist, so it is safe to call on every boot to keep TTL and lookup
+// indexes in place.
+func (m *Mordor) CreateIndexes(models []mongo.IndexModel) error {
+	if nil == m.collection {
+		return errors.New("connection not setup")
+	}
+
+	_, err := m.collection.Indexes().CreateMany(m.ctx, models)
+
+	return err
+}
+
 func (m *Mordor) Write(data interface{}) (string, error) {
 	if nil == m.collection {
 		return "", errors.New("connection not setup")
