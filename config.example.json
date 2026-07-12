@@ -10,6 +10,9 @@
   "jwt": {
     "secret": "changeme-long-random-string"
   },
+  "sighting": {
+    "salt": "changeme-long-random-string"
+  },
   "auth": {
     "cookie_domain": "argsea.com"
   },

@@ -257,14 +257,21 @@ func main() {
 	// pings each page view and light/note open; the watch room reads only
 	// aggregates back. A TTL keeps the ledger bounded, no cookies, no consent.
 	log.Println("Initializing sightings")
-	sightingSalt := os.Getenv("SIGHTING_SALT")
+
+	// the salt lives in the config file with the other secrets; the env var
+	// stays as an override for runs without one
+	sightingSalt := viper.GetString("sighting.salt")
+
+	if "" == sightingSalt {
+		sightingSalt = os.Getenv("SIGHTING_SALT")
+	}
 
 	if "" == sightingSalt {
 		// no salt configured: hash visitors with a per-boot random salt. It
 		// resets on restart, which only splits uniques across a restart; the
 		// hashes stay anonymous either way.
 		sightingSalt = randomSightingSalt()
-		log.Println("SIGHTING_SALT is unset; using a per-boot salt that resets on restart")
+		log.Println("sighting.salt is unset; using a per-boot salt that resets on restart")
 	}
 
 	sightingMordor := stores.NewMordor(mongo_db.DB.Collection(sightingTable), context.Background())
