@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -133,6 +135,7 @@ func main() {
 	catDesignTable := "catDesigns"
 	doodleTable := "doodles"
 	carvingTable := "carvings"
+	sightingTable := "sightings"
 
 	// routers
 	userRouter := router.PathPrefix("/1/user").Subrouter()
@@ -147,6 +150,7 @@ func main() {
 	figureheadRouter := router.PathPrefix("/1/figurehead").Subrouter()
 	doodleRouter := router.PathPrefix("/1/doodle").Subrouter()
 	carvingRouter := router.PathPrefix("/1/carving").Subrouter()
+	sightingRouter := router.PathPrefix("/1/sighting").Subrouter()
 
 	// the session cookie's domain is deploy-specific (prod vs a local vhost);
 	// configurable, with the historical hardcoded value as the default
@@ -249,6 +253,32 @@ func main() {
 	doodleService := service.NewDoodleService(out_adapter.NewDoodleMongoAdapter(doodleMordor), activityService)
 	in_adapter.NewDoodleMuxAdapter(doodleService, webAuth, doodleRouter)
 
+	// the harbor's tally (sightings): anonymous first-party analytics. The shore
+	// pings each page view and light/note open; the watch room reads only
+	// aggregates back. A TTL keeps the ledger bounded, no cookies, no consent.
+	log.Println("Initializing sightings")
+	sightingSalt := os.Getenv("SIGHTING_SALT")
+
+	if "" == sightingSalt {
+		// no salt configured: hash visitors with a per-boot random salt. It
+		// resets on restart, which only splits uniques across a restart; the
+		// hashes stay anonymous either way.
+		sightingSalt = randomSightingSalt()
+		log.Println("SIGHTING_SALT is unset; using a per-boot salt that resets on restart")
+	}
+
+	sightingMordor := stores.NewMordor(mongo_db.DB.Collection(sightingTable), context.Background())
+	sightingRepo := out_adapter.NewSightingMongoAdapter(sightingMordor)
+
+	if err := sightingRepo.EnsureIndexes(); nil != err {
+		// the endpoints work without the indexes; the TTL and the window read
+		// just run unindexed until a boot lands them
+		log.Printf("sighting index setup failed: %v\n", err)
+	}
+
+	sightingService := service.NewSightingService(sightingRepo, sightingSalt)
+	in_adapter.NewSightingMuxAdapter(sightingService, webAuth, sightingRouter)
+
 	// users: kept (auth depends on it)
 	log.Println("Initializing user")
 	userMordor := stores.NewMordor(mongo_db.DB.Collection(userTable), context.Background())
@@ -321,6 +351,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not start server: %s\n", err.Error())
 	}
+}
+
+// randomSightingSalt mints a boot-time salt when SIGHTING_SALT is unset, so the
+// visitor hash is never keyed on an empty or predictable salt.
+func randomSightingSalt() string {
+	buf := make([]byte, 32)
+
+	if _, err := rand.Read(buf); nil != err {
+		return fmt.Sprintf("%x", time.Now().UnixNano())
+	}
+
+	return hex.EncodeToString(buf)
 }
 
 func baseMiddleWare(next http.Handler) http.Handler {
