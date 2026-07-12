@@ -20,4 +20,5 @@ const (
 	EntityMedia      = "media"
 	EntityFigurehead = "figurehead"
 	EntityDoodle     = "doodle"
+	EntityCarving    = "carving"
 )
