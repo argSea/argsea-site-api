@@ -59,7 +59,9 @@ func (c carvingService) Create(carving domain.Carving) (domain.Carving, error) {
 
 // Update writes a new name/svg but leaves the bolt alone; a spot only moves
 // through Bolt. The seeded v1s gate harder: name and svg are frozen outright,
-// so a spot can always be re-bolted back to its v1 look.
+// so a spot can always be re-bolted back to its v1 look. A bolted carving
+// gates too: its svg cannot be blanked, builtin or not, or the spot goes dark
+// at the next hoist; unbolt it (bolt another carving onto the spot) first.
 func (c carvingService) Update(carving domain.Carving) (domain.Carving, error) {
 	existing := c.repo.Get(carving.Id)
 
@@ -69,6 +71,10 @@ func (c carvingService) Update(carving domain.Carving) (domain.Carving, error) {
 
 	if existing.Builtin && (existing.Name != carving.Name || existing.Svg != carving.Svg) {
 		return domain.Carving{}, in_port.ErrCarvingBuiltin
+	}
+
+	if 0 != len(existing.BoltedTo) && "" == carving.Svg {
+		return domain.Carving{}, in_port.ErrCarvingBolted
 	}
 
 	if err := validateCarving(carving); nil != err {
@@ -92,7 +98,10 @@ func (c carvingService) Update(carving domain.Carving) (domain.Carving, error) {
 }
 
 // Delete refuses a builtin outright: the seven v1 carvings are permanent so
-// every spot always has a v1 to bolt back to.
+// every spot always has a v1 to bolt back to. It also refuses any carving
+// still bolted to a spot, the same guard figurehead's Delete holds for a
+// published design: unbolt it (bolt another carving onto the spot) first, so
+// exactly one carving holds a given spot at a time stays true.
 func (c carvingService) Delete(id string) error {
 	existing := c.repo.Get(id)
 
@@ -102,6 +111,10 @@ func (c carvingService) Delete(id string) error {
 
 	if existing.Builtin {
 		return in_port.ErrCarvingBuiltin
+	}
+
+	if 0 != len(existing.BoltedTo) {
+		return in_port.ErrCarvingBolted
 	}
 
 	if err := c.repo.Remove(id); nil != err {

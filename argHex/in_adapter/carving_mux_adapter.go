@@ -112,7 +112,7 @@ func (a carvingMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 
 	saved, err := a.carving.Update(carving)
 
-	if errors.Is(err, in_port.ErrCarvingBuiltin) {
+	if errors.Is(err, in_port.ErrCarvingBuiltin) || errors.Is(err, in_port.ErrCarvingBolted) {
 		writeError(w, 409, err.Error())
 		return
 	}
@@ -125,8 +125,9 @@ func (a carvingMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, withBoltedTo(saved))
 }
 
-// Delete refuses a builtin outright with a 409: the seven v1 carvings are
-// permanent so every spot always has a v1 to bolt back to.
+// Delete refuses a builtin or a still-bolted carving outright with a 409: the
+// seven v1 carvings are permanent so every spot always has a v1 to bolt back
+// to, and a live spot must never go dark or vanish at the next hoist.
 func (a carvingMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
 	if !requireAdmin(a.auth, w, r) {
 		return
@@ -134,7 +135,7 @@ func (a carvingMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err := a.carving.Delete(mux.Vars(r)["id"])
 
-	if errors.Is(err, in_port.ErrCarvingBuiltin) {
+	if errors.Is(err, in_port.ErrCarvingBuiltin) || errors.Is(err, in_port.ErrCarvingBolted) {
 		writeError(w, 409, err.Error())
 		return
 	}

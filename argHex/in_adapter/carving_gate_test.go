@@ -210,7 +210,7 @@ func TestCarvingCreateRejectsOversizedSvgOverHTTP(t *testing.T) {
 	authService, _, router := newCarvingRouter(t)
 	token := mintRoleToken(t, authService, in_port.PERM_ADMIN)
 
-	big := `{"name":"too big","svg":"<svg>` + strings.Repeat("a", 100*1024) + `</svg>"}`
+	big := `{"name":"too big","svg":"<svg>` + strings.Repeat("a", 100*1024-10) + `</svg>"}` // one byte over 100KB
 
 	rec := carvingRequest(t, router, "POST", "/1/carving/carvings", big, token)
 
@@ -234,6 +234,50 @@ func TestCarvingBuiltinDeleteAndNameSvgUpdateAre409(t *testing.T) {
 		if rec := carvingRequest(t, router, "PUT", "/1/carving/carvings/"+seed.Id, string(body), token); http.StatusConflict != rec.Code {
 			t.Fatalf("expected 409 renaming the %s seed, got %d", seed.Name, rec.Code)
 		}
+	}
+}
+
+func TestCarvingUpdateRejectsBlankSvgOnABoltedCarvingOverHTTP(t *testing.T) {
+	authService, _, router := newCarvingRouter(t)
+	token := mintRoleToken(t, authService, in_port.PERM_ADMIN)
+
+	rec := carvingRequest(t, router, "POST", "/1/carving/carvings", `{"name":"new boat","svg":"<svg>new</svg>"}`, token)
+
+	var created domain.Carving
+	json.Unmarshal(rec.Body.Bytes(), &created)
+
+	rec = carvingRequest(t, router, "POST", "/1/carving/carvings/"+created.Id+"/bolt", `{"spot":"boat"}`, token)
+
+	if http.StatusOK != rec.Code {
+		t.Fatalf("expected 200 for an admin bolt, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = carvingRequest(t, router, "PUT", "/1/carving/carvings/"+created.Id, `{"name":"new boat","svg":""}`, token)
+
+	if http.StatusConflict != rec.Code {
+		t.Fatalf("expected 409 blanking a bolted carving's svg, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCarvingDeleteRejectsBoltedCarvingOverHTTP(t *testing.T) {
+	authService, _, router := newCarvingRouter(t)
+	token := mintRoleToken(t, authService, in_port.PERM_ADMIN)
+
+	rec := carvingRequest(t, router, "POST", "/1/carving/carvings", `{"name":"new boat","svg":"<svg>new</svg>"}`, token)
+
+	var created domain.Carving
+	json.Unmarshal(rec.Body.Bytes(), &created)
+
+	rec = carvingRequest(t, router, "POST", "/1/carving/carvings/"+created.Id+"/bolt", `{"spot":"boat"}`, token)
+
+	if http.StatusOK != rec.Code {
+		t.Fatalf("expected 200 for an admin bolt, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = carvingRequest(t, router, "DELETE", "/1/carving/carvings/"+created.Id, "", token)
+
+	if http.StatusConflict != rec.Code {
+		t.Fatalf("expected 409 deleting a bolted carving, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
