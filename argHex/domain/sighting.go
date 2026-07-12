@@ -37,12 +37,15 @@ type SightingBeacon struct {
 	Ref     string `json:"ref"`
 }
 
-// the three kinds of ping the shore sends: a page view, a light overlay
-// opened on a project, a journal note opened.
+// the kinds of ping the shore sends: a page view, a light overlay opened on a
+// project, a journal note opened, a hobby graveyard record opened, and a proverb
+// bottle served from the crossing boat.
 const (
-	SightingSail = "sail"
-	SightingFlip = "flip"
-	SightingRead = "read"
+	SightingSail   = "sail"
+	SightingFlip   = "flip"
+	SightingRead   = "read"
+	SightingVisit  = "visit"
+	SightingBottle = "bottle"
 )
 
 // the port a visitor came through, bucketed from the referrer so the raw
@@ -74,7 +77,8 @@ var botNeedles = []string{"bot", "crawl", "spider", "preview", "fetch", "curl", 
 
 // ValidKind reports whether kind is one the shore is allowed to send.
 func ValidKind(kind string) bool {
-	return SightingSail == kind || SightingFlip == kind || SightingRead == kind
+	return SightingSail == kind || SightingFlip == kind || SightingRead == kind ||
+		SightingVisit == kind || SightingBottle == kind
 }
 
 // ValidPath rejects anything that is not a plain site path: it must be rooted,
@@ -169,16 +173,19 @@ func refHost(ref string) string {
 }
 
 // TrafficReport is the watch room's read of the tally over a window: totals,
-// a zero-filled per-day series, the busiest weekday, the top flipped postcard
-// and read note, and the port shares. It carries ids only; the admin resolves
-// them to titles from its own store.
+// a zero-filled per-day series, the busiest weekday, the top flipped postcard,
+// read note, and visited hobby, and the port shares. Uniques and sails stay
+// sail-only; bottles is the raw count of proverb bottles served. It carries ids
+// only; the admin resolves them to titles from its own store.
 type TrafficReport struct {
 	Uniques     int           `json:"uniques"`
 	Sails       int           `json:"sails"`
+	Bottles     int           `json:"bottles"`
 	Days        []TrafficDay  `json:"days"`
 	Busiest     string        `json:"busiest"`
 	TopPostcard *TopPostcard  `json:"topPostcard"`
 	TopNote     *TopNote      `json:"topNote"`
+	TopHobby    *TopHobby     `json:"topHobby"`
 	Ports       []TrafficPort `json:"ports"`
 }
 
@@ -196,6 +203,11 @@ type TopPostcard struct {
 type TopNote struct {
 	Subject string `json:"subject"`
 	Reads   int    `json:"reads"`
+}
+
+type TopHobby struct {
+	Subject string `json:"subject"`
+	Visits  int    `json:"visits"`
 }
 
 type TrafficPort struct {

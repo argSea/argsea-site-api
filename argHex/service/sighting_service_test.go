@@ -53,14 +53,22 @@ func TestRecordStoresEachKind(t *testing.T) {
 		t.Fatalf("recording a read failed: %v", err)
 	}
 
+	if err := svc.Record(domain.SightingBeacon{Kind: domain.SightingVisit, Path: "/hobbies", Subject: "graveyard-chess", Ref: ""}, "203.0.113.7", "Mozilla/5.0"); nil != err {
+		t.Fatalf("recording a visit failed: %v", err)
+	}
+
+	if err := svc.Record(domain.SightingBeacon{Kind: domain.SightingBottle, Path: "/", Subject: "", Ref: ""}, "203.0.113.7", "Mozilla/5.0"); nil != err {
+		t.Fatalf("recording a bottle failed: %v", err)
+	}
+
 	window, err := repo.Window("")
 
 	if nil != err {
 		t.Fatalf("window read failed: %v", err)
 	}
 
-	if 3 != len(window) {
-		t.Fatalf("expected all three kinds stored, got %d", len(window))
+	if 5 != len(window) {
+		t.Fatalf("expected all five kinds stored, got %d", len(window))
 	}
 
 	sail := findKind(t, window, domain.SightingSail)
@@ -135,6 +143,12 @@ func TestTrafficAggregateShape(t *testing.T) {
 	addEvent(t, repo, day(0), domain.SightingFlip, "cat-cascade")
 	addEvent(t, repo, day(0), domain.SightingFlip, "otherbook")
 	addEvent(t, repo, day(1), domain.SightingRead, "note-fog")
+	// visits resolving to a top hobby, and bottles that only count in total
+	addEvent(t, repo, day(0), domain.SightingVisit, "graveyard-chess")
+	addEvent(t, repo, day(0), domain.SightingVisit, "graveyard-chess")
+	addEvent(t, repo, day(1), domain.SightingVisit, "abandoned-origami")
+	addEvent(t, repo, day(0), domain.SightingBottle, "")
+	addEvent(t, repo, day(2), domain.SightingBottle, "")
 
 	report, err := svc.Traffic(7)
 
@@ -178,6 +192,14 @@ func TestTrafficAggregateShape(t *testing.T) {
 		t.Fatalf("expected note-fog with 1 read as top note, got %+v", report.TopNote)
 	}
 
+	if 2 != report.Bottles {
+		t.Fatalf("expected two bottles served, got %d", report.Bottles)
+	}
+
+	if nil == report.TopHobby || "graveyard-chess" != report.TopHobby.Subject || 2 != report.TopHobby.Visits {
+		t.Fatalf("expected graveyard-chess with 2 visits as top hobby, got %+v", report.TopHobby)
+	}
+
 	shares := map[string]int{}
 	sum := 0
 
@@ -192,6 +214,31 @@ func TestTrafficAggregateShape(t *testing.T) {
 
 	if sum < 95 || sum > 100 {
 		t.Fatalf("port shares should sum to ~100, got %d", sum)
+	}
+}
+
+func TestTrafficTopHobbyIsNullWithoutVisits(t *testing.T) {
+	svc, repo := newSightings(t)
+	today := time.Now().UTC()
+	day := func(k int) string { return today.AddDate(0, 0, -k).Format("2006-01-02") }
+
+	// bottles are served but no hobby graveyard record is ever opened
+	addSail(t, repo, day(0), "v1", domain.PortDirect)
+	addEvent(t, repo, day(0), domain.SightingBottle, "")
+	addEvent(t, repo, day(0), domain.SightingBottle, "")
+
+	report, err := svc.Traffic(7)
+
+	if nil != err {
+		t.Fatalf("traffic read failed: %v", err)
+	}
+
+	if 2 != report.Bottles {
+		t.Fatalf("expected two bottles counted without any visit, got %d", report.Bottles)
+	}
+
+	if nil != report.TopHobby {
+		t.Fatalf("no visits means a null top hobby, got %+v", report.TopHobby)
 	}
 }
 
@@ -212,12 +259,16 @@ func TestTrafficIsEmptyButShapedWhenNothingHappened(t *testing.T) {
 		t.Fatalf("an empty window has no sails or uniques, got %d / %d", report.Sails, report.Uniques)
 	}
 
+	if 0 != report.Bottles {
+		t.Fatalf("an empty window has no bottles, got %d", report.Bottles)
+	}
+
 	if "" != report.Busiest {
 		t.Fatalf("an empty window has no busiest day, got %q", report.Busiest)
 	}
 
-	if nil != report.TopPostcard || nil != report.TopNote {
-		t.Fatalf("an empty window has null tops, got %+v / %+v", report.TopPostcard, report.TopNote)
+	if nil != report.TopPostcard || nil != report.TopNote || nil != report.TopHobby {
+		t.Fatalf("an empty window has null tops, got %+v / %+v / %+v", report.TopPostcard, report.TopNote, report.TopHobby)
 	}
 
 	if nil == report.Ports || 0 != len(report.Ports) {
@@ -232,6 +283,10 @@ func TestTrafficIsEmptyButShapedWhenNothingHappened(t *testing.T) {
 
 	if !strings.Contains(string(body), `"topPostcard":null`) || !strings.Contains(string(body), `"ports":[]`) {
 		t.Fatalf("wire shape must carry null tops and an empty ports array, got %s", body)
+	}
+
+	if !strings.Contains(string(body), `"bottles":0`) || !strings.Contains(string(body), `"topHobby":null`) {
+		t.Fatalf("wire shape must carry a zero bottle count and a null top hobby, got %s", body)
 	}
 }
 

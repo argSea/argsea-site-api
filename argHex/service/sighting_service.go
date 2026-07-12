@@ -70,9 +70,9 @@ func (s sightingService) Record(beacon domain.SightingBeacon, ip string, userAge
 	return err
 }
 
-// Traffic folds the window of sightings into the watch room's read: totals, a
-// zero-filled per-day series, the busiest weekday, the top flipped postcard and
-// read note, and the port shares.
+// Traffic folds the window of sightings into the watch room's read: totals of
+// sails and bottles, a zero-filled per-day series, the busiest weekday, the top
+// flipped postcard, read note, and visited hobby, and the port shares.
 func (s sightingService) Traffic(days int) (domain.TrafficReport, error) {
 	days = clampDays(days)
 	now := time.Now().UTC()
@@ -105,7 +105,9 @@ func foldTraffic(window domain.Sightings, now time.Time, days int) domain.Traffi
 	portCounts := map[string]int{}
 	flipCounts := map[string]int{}
 	readCounts := map[string]int{}
+	visitCounts := map[string]int{}
 	totalSails := 0
+	totalBottles := 0
 
 	for _, sighting := range window {
 		switch sighting.Kind {
@@ -126,6 +128,12 @@ func foldTraffic(window domain.Sightings, now time.Time, days int) domain.Traffi
 			if "" != sighting.Subject {
 				readCounts[sighting.Subject]++
 			}
+		case domain.SightingVisit:
+			if "" != sighting.Subject {
+				visitCounts[sighting.Subject]++
+			}
+		case domain.SightingBottle:
+			totalBottles++
 		}
 	}
 
@@ -150,10 +158,12 @@ func foldTraffic(window domain.Sightings, now time.Time, days int) domain.Traffi
 	return domain.TrafficReport{
 		Uniques:     len(windowVisitors),
 		Sails:       totalSails,
+		Bottles:     totalBottles,
 		Days:        daySeries,
 		Busiest:     busiest,
 		TopPostcard: topPostcard(flipCounts),
 		TopNote:     topNote(readCounts),
+		TopHobby:    topHobby(visitCounts),
 		Ports:       portShares(portCounts, totalSails),
 	}
 }
@@ -198,6 +208,16 @@ func topNote(readCounts map[string]int) *domain.TopNote {
 	}
 
 	return &domain.TopNote{Subject: subject, Reads: count}
+}
+
+func topHobby(visitCounts map[string]int) *domain.TopHobby {
+	subject, count := topSubject(visitCounts)
+
+	if 0 == count {
+		return nil
+	}
+
+	return &domain.TopHobby{Subject: subject, Visits: count}
 }
 
 // topSubject picks the most-counted subject, breaking ties on the lower id so
