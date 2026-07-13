@@ -51,11 +51,48 @@ type Hobby struct {
 	UpdatedAt string   `json:"updatedAt" bson:"updatedAt,omitempty"`
 }
 
-// Coord is a point on the wandering chart. Lat/Lon are plain floats: the keeper
-// charts fictional waters, so there is no range to validate beyond being finite.
+// Coord is a point on the wandering chart. Lat/Lon are plain floats over the
+// keeper's fictional waters; a write clamps them into the chart window (see
+// ClampCoord) so an off-window mark still lands somewhere the chart can draw.
 type Coord struct {
 	Lat float64 `json:"lat" bson:"lat"`
 	Lon float64 `json:"lon" bson:"lon"`
+}
+
+// The chart's clamp band. The site transcribes the mock's chart window
+// (chartWin lat 57.80-58.58, lon -7.98 to -6.55) as CHART_WIN; these inset it
+// 3% per side so a mark snapped to a bound sits just inside the frame instead
+// of half-clipping at the edge. The same numbers live in the admin editor.
+const (
+	chartLatMin = 57.82
+	chartLatMax = 58.56
+	chartLonMin = -7.94
+	chartLonMax = -6.59
+)
+
+// ClampCoord snaps a coord's lat/lon into the clamp band, so an off-window
+// bearing (a typo that would beach a ship in Mexico) lands at the nearest
+// visible edge rather than rendering off the chart. A nil coord is uncharted
+// and stays nil: the sanctioned off-chart state.
+func ClampCoord(c *Coord) {
+	if nil == c {
+		return
+	}
+
+	c.Lat = clamp(c.Lat, chartLatMin, chartLatMax)
+	c.Lon = clamp(c.Lon, chartLonMin, chartLonMax)
+}
+
+func clamp(v, lo, hi float64) float64 {
+	if v < lo {
+		return lo
+	}
+
+	if v > hi {
+		return hi
+	}
+
+	return v
 }
 
 // ValidHobbyState reports whether state is one the log allows. Empty is not a
