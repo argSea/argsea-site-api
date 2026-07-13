@@ -1,7 +1,6 @@
 package service_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/argSea/argsea-site-api/argHex/domain"
@@ -114,56 +113,36 @@ func TestNoteIdsRejectsUnknownId(t *testing.T) {
 	}
 }
 
-func TestSlugRequiredAndUniqueWithCaseStudy(t *testing.T) {
+func TestSlugUniqueAcrossProjects(t *testing.T) {
 	projects := newProjects()
 
-	// a case study without a slug is unreachable at /projects/<slug>
-	if _, err := projects.Create(domain.Project{Title: "No slug", CaseStudy: "# Story"}); nil == err {
-		t.Fatalf("expected caseStudy without a slug rejected")
-	}
-
-	// no case study means the slug field stays free, same as before this contract
+	// an empty slug is fine: the slug field is optional now that the case study
+	// (and its /projects/<slug> route) lives in its own caselog
 	if _, err := projects.Create(domain.Project{Title: "Plain"}); nil != err {
-		t.Fatalf("expected a project without caseStudy or slug accepted, got %v", err)
+		t.Fatalf("expected a project without a slug accepted, got %v", err)
 	}
 
-	first, err := projects.Create(domain.Project{Title: "First", CaseStudy: "# Story", Slug: "the-light"})
+	first, err := projects.Create(domain.Project{Title: "First", Slug: "the-light"})
 
 	if nil != err {
-		t.Fatalf("expected a caseStudy with a slug accepted, got %v", err)
+		t.Fatalf("expected a project with a slug accepted, got %v", err)
 	}
 
 	// case-insensitive collision
-	if _, err := projects.Create(domain.Project{Title: "Second", CaseStudy: "# Story", Slug: "THE-LIGHT"}); nil == err {
+	if _, err := projects.Create(domain.Project{Title: "Second", Slug: "THE-LIGHT"}); nil == err {
 		t.Fatalf("expected a case-insensitive slug collision rejected")
 	}
 
 	// the update path rejects a collision too
-	second, _ := projects.Create(domain.Project{Title: "Second", CaseStudy: "# Story", Slug: "another-light"})
+	second, _ := projects.Create(domain.Project{Title: "Second", Slug: "another-light"})
 
-	if _, err := projects.Update(domain.Project{Id: second.Id, Title: "Second", CaseStudy: "# Story", Slug: "The-Light"}); nil == err {
+	if _, err := projects.Update(domain.Project{Id: second.Id, Title: "Second", Slug: "The-Light"}); nil == err {
 		t.Fatalf("expected update to reject a case-insensitive slug collision")
 	}
 
 	// a project keeping its own slug on update must not collide with itself
-	if _, err := projects.Update(domain.Project{Id: first.Id, Title: "First, retitled", CaseStudy: "# Story", Slug: "the-light"}); nil != err {
+	if _, err := projects.Update(domain.Project{Id: first.Id, Title: "First, retitled", Slug: "the-light"}); nil != err {
 		t.Fatalf("expected a project to keep its own slug on update, got %v", err)
-	}
-}
-
-func TestCaseStudyIsStoredVerbatim(t *testing.T) {
-	projects := newProjects()
-
-	markdown := "# Heading\n\n<script>alert('x')</script> stays put in the keeper's dialect"
-
-	saved, err := projects.Create(domain.Project{Title: "Story", CaseStudy: markdown, Slug: "story"})
-
-	if nil != err {
-		t.Fatalf("create failed: %v", err)
-	}
-
-	if !strings.Contains(saved.CaseStudy, "<script>") {
-		t.Fatalf("expected caseStudy stored verbatim (unsanitized), got %q", saved.CaseStudy)
 	}
 }
 

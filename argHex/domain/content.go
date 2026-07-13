@@ -21,4 +21,6 @@ const (
 	EntityFigurehead = "figurehead"
 	EntityDoodle     = "doodle"
 	EntityCarving    = "carving"
+	EntityCaseLog    = "caselog"
+	EntityBlockSet   = "blockset"
 )
