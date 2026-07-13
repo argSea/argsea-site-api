@@ -58,6 +58,7 @@ func (m *CaseLogMigration) Run() (int, error) {
 			Status:      domain.StatusPublished,
 			Title:       src.Title,
 			Blocks:      append(headerBlocks(src), parseDialect(src.CaseStudy)...),
+			Revision:    1,
 			PublishedAt: now,
 			CreatedAt:   now,
 			UpdatedAt:   now,

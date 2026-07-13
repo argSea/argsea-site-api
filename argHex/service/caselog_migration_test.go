@@ -53,6 +53,10 @@ func TestMigrationPrependsTheHeaderThenTheParsedBody(t *testing.T) {
 		t.Fatalf("migrated logs must land published, got %q", log.Status)
 	}
 
+	if 1 != log.Revision {
+		t.Fatalf("a migrated log is printing one, got %d", log.Revision)
+	}
+
 	if "proj-1" != log.ProjectId || "Lighthouse" != log.Title {
 		t.Fatalf("expected the log keyed and titled from the project, got %+v", log)
 	}

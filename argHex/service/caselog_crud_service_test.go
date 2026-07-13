@@ -284,6 +284,59 @@ func TestCaseLogUpdateRejectsMovingAPublishedLog(t *testing.T) {
 	}
 }
 
+func TestCaseLogRevisionCountsPrintingsNotLifecycle(t *testing.T) {
+	logs, projects := newCaseLogs()
+	projectID := seedProject(projects, "the-light")
+
+	// a new log is printing one, whatever the caller sent
+	saved, err := logs.Create(domain.CaseLog{ProjectId: projectID, Title: "First printing", Revision: 42})
+
+	if nil != err {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	if 1 != saved.Revision {
+		t.Fatalf("expected create to start the counter at 1, got %d", saved.Revision)
+	}
+
+	// every edit is a new printing, server-counted; a stale client number is ignored
+	edited, err := logs.Update(domain.CaseLog{Id: saved.Id, ProjectId: projectID, Title: "Second printing", Revision: 42})
+
+	if nil != err {
+		t.Fatalf("update failed: %v", err)
+	}
+
+	if 2 != edited.Revision {
+		t.Fatalf("expected update to increment to 2, got %d", edited.Revision)
+	}
+
+	// the lifecycle is not an edit: publish and unpublish leave the counter alone
+	published, _ := logs.Publish(saved.Id)
+
+	if 2 != published.Revision {
+		t.Fatalf("expected publish to leave the counter at 2, got %d", published.Revision)
+	}
+
+	unpublished, _ := logs.Unpublish(saved.Id)
+
+	if 2 != unpublished.Revision {
+		t.Fatalf("expected unpublish to leave the counter at 2, got %d", unpublished.Revision)
+	}
+
+	// a rollback is a new printing: the counter moves on from the live document,
+	// never back to the snapshot's number
+	revs, _ := logs.Revisions(saved.Id, 100)
+	restored, err := logs.Restore(saved.Id, revs[len(revs)-1].Id)
+
+	if nil != err {
+		t.Fatalf("restore failed: %v", err)
+	}
+
+	if 3 != restored.Revision {
+		t.Fatalf("expected restore to increment to 3, got %d", restored.Revision)
+	}
+}
+
 func TestCaseLogListPublishedOnlyFilters(t *testing.T) {
 	logs, projects := newCaseLogs()
 	shownProject := seedProject(projects, "shown")

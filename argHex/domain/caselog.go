@@ -18,15 +18,18 @@ type Blocks []Block
 // story that used to live in the dormant Project.caseStudy string, now a list
 // of blocks. The header (title, subhead, facts, meta) lives in the blocks
 // themselves. Title is a derived display title the admin keeps synced from the
-// first title block, carried here so lists need not walk the blocks. At most
-// one published log per project; the publish swap enforces it. ProjectId is
-// required and references an existing project.
+// first title block, carried here so lists need not walk the blocks. Revision
+// is the printing counter the admin's shelf reads ("rev N"): server-assigned,
+// 1 on create, +1 on every edit or rollback, untouched by the lifecycle. At
+// most one published log per project; the publish swap enforces it. ProjectId
+// is required and references an existing project.
 type CaseLog struct {
 	Id          string `json:"id" bson:"_id,omitempty"`
 	ProjectId   string `json:"projectId" bson:"projectId,omitempty"`
 	Status      string `json:"status" bson:"status,omitempty"`
 	Title       string `json:"title" bson:"title,omitempty"`
 	Blocks      Blocks `json:"blocks" bson:"blocks,omitempty"`
+	Revision    int    `json:"revision" bson:"revision"`       // no omitempty: always on the wire
 	PublishedAt string `json:"publishedAt" bson:"publishedAt"` // no omitempty: unpublish must clear it
 	CreatedAt   string `json:"createdAt" bson:"createdAt,omitempty"`
 	UpdatedAt   string `json:"updatedAt" bson:"updatedAt,omitempty"`

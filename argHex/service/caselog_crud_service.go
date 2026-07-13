@@ -78,6 +78,7 @@ func (c caseLogCRUDService) Create(log domain.CaseLog) (domain.CaseLog, error) {
 	now := nowStamp()
 	log.Status = domain.StatusDraft
 	log.PublishedAt = ""
+	log.Revision = 1
 	log.CreatedAt = now
 	log.UpdatedAt = now
 
@@ -120,6 +121,7 @@ func (c caseLogCRUDService) Update(log domain.CaseLog) (domain.CaseLog, error) {
 
 	log.Status = existing.Status
 	log.PublishedAt = existing.PublishedAt
+	log.Revision = existing.Revision + 1
 	log.CreatedAt = existing.CreatedAt
 	log.UpdatedAt = nowStamp()
 
@@ -264,6 +266,9 @@ func (c caseLogCRUDService) Restore(id string, revisionID string) (domain.CaseLo
 	restored.Id = id
 	restored.Status = existing.Status
 	restored.PublishedAt = existing.PublishedAt
+	// a rollback is a new printing: the counter moves on from the live document,
+	// never back to the snapshot's number
+	restored.Revision = existing.Revision + 1
 	restored.UpdatedAt = nowStamp()
 
 	if err := c.repo.Set(restored); nil != err {
