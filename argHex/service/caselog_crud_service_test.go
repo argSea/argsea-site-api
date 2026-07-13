@@ -201,6 +201,89 @@ func TestCaseLogRestoreRollsBackAndStaysAuditable(t *testing.T) {
 	}
 }
 
+func TestCaseLogRestorePreservesLifecycleAndTheOnePublishedInvariant(t *testing.T) {
+	logs, projects := newCaseLogs()
+	projectID := seedProject(projects, "the-light")
+
+	// snapshot X while it is published: publish doesn't snapshot, but the edit
+	// right after records Status published into the revision
+	x, _ := logs.Create(domain.CaseLog{ProjectId: projectID, Title: "X"})
+	logs.Publish(x.Id)
+	logs.Update(domain.CaseLog{Id: x.Id, ProjectId: projectID, Title: "X, published era"})
+
+	// publishing Y lowers X to draft
+	y, _ := logs.Create(domain.CaseLog{ProjectId: projectID, Title: "Y"})
+	logs.Publish(y.Id)
+
+	// newest-first: [0] is the published-era edit of X
+	revs, _ := logs.Revisions(x.Id, 100)
+	restored, err := logs.Restore(x.Id, revs[0].Id)
+
+	if nil != err {
+		t.Fatalf("restore failed: %v", err)
+	}
+
+	// content came back, the lifecycle did not: X stays the draft it now is
+	if "X, published era" != restored.Title {
+		t.Fatalf("expected the snapshot content restored, got %q", restored.Title)
+	}
+
+	if domain.StatusDraft != restored.Status || "" != restored.PublishedAt {
+		t.Fatalf("restore must not resurrect the snapshot's lifecycle, got %q / %q", restored.Status, restored.PublishedAt)
+	}
+
+	if domain.StatusPublished != logs.Read(y.Id).Status {
+		t.Fatalf("expected Y to stay published, got %q", logs.Read(y.Id).Status)
+	}
+
+	// the invariant holds: exactly one published log for the project
+	published, _ := logs.List(true, 0)
+
+	if 1 != len(published) || "Y" != published[0].Title {
+		t.Fatalf("expected Y as the sole published log, got %+v", published)
+	}
+}
+
+func TestCaseLogUpdateRejectsMovingAPublishedLog(t *testing.T) {
+	logs, projects := newCaseLogs()
+	projectA := seedProject(projects, "light-a")
+	projectB := seedProject(projects, "light-b")
+
+	published, _ := logs.Create(domain.CaseLog{ProjectId: projectA, Title: "Pinned"})
+	logs.Publish(published.Id)
+
+	// a published log stays pinned to its light
+	if _, err := logs.Update(domain.CaseLog{Id: published.Id, ProjectId: projectB, Title: "Pinned"}); nil == err {
+		t.Fatalf("expected update to reject moving a published log to another project")
+	}
+
+	stored := logs.Read(published.Id)
+
+	if projectA != stored.ProjectId || domain.StatusPublished != stored.Status {
+		t.Fatalf("the rejected move must leave the log untouched, got %+v", stored)
+	}
+
+	// a draft moves freely
+	draft, _ := logs.Create(domain.CaseLog{ProjectId: projectA, Title: "Loose"})
+
+	moved, err := logs.Update(domain.CaseLog{Id: draft.Id, ProjectId: projectB, Title: "Loose"})
+
+	if nil != err {
+		t.Fatalf("expected a draft to move projects, got %v", err)
+	}
+
+	if projectB != moved.ProjectId || domain.StatusDraft != moved.Status {
+		t.Fatalf("expected the draft re-pointed at B, got %+v", moved)
+	}
+
+	// and an unpublished log may move too: unpublish is the sanctioned door
+	logs.Unpublish(published.Id)
+
+	if _, err := logs.Update(domain.CaseLog{Id: published.Id, ProjectId: projectB, Title: "Pinned"}); nil != err {
+		t.Fatalf("expected the unpublished log to move, got %v", err)
+	}
+}
+
 func TestCaseLogListPublishedOnlyFilters(t *testing.T) {
 	logs, projects := newCaseLogs()
 	shownProject := seedProject(projects, "shown")

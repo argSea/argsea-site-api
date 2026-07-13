@@ -100,7 +100,9 @@ func (c caseLogCRUDService) Create(log domain.CaseLog) (domain.CaseLog, error) {
 
 // Update writes new content but leaves the publication lifecycle alone; status
 // and publishedAt only move through Publish/Unpublish, so an edit never silently
-// publishes a draft. Every edit snapshots the full document.
+// publishes a draft. A published log cannot move to another project either:
+// re-pointing it would plant a second published log on the target light behind
+// Publish's back. Every edit snapshots the full document.
 func (c caseLogCRUDService) Update(log domain.CaseLog) (domain.CaseLog, error) {
 	existing := c.repo.Get(log.Id)
 
@@ -110,6 +112,10 @@ func (c caseLogCRUDService) Update(log domain.CaseLog) (domain.CaseLog, error) {
 
 	if err := c.validateProject(log.ProjectId); nil != err {
 		return domain.CaseLog{}, err
+	}
+
+	if domain.StatusPublished == existing.Status && log.ProjectId != existing.ProjectId {
+		return domain.CaseLog{}, errors.New("unpublish before moving a log to another light")
 	}
 
 	log.Status = existing.Status
@@ -226,8 +232,17 @@ func (c caseLogCRUDService) Revisions(id string, limit int64) (domain.Revisions,
 
 // Restore rolls the live log back to an earlier revision's snapshot and copies
 // that state forward as a new current revision, so the rollback is itself an
-// auditable printing in the history, the same as projects.
+// auditable printing in the history, the same as projects. A rollback is an
+// edit too: it restores content only and keeps the live document's publication
+// lifecycle, so a published-era snapshot restored onto a now-draft log never
+// resurrects a second published log behind Publish's back.
 func (c caseLogCRUDService) Restore(id string, revisionID string) (domain.CaseLog, error) {
+	existing := c.repo.Get(id)
+
+	if "" == existing.Id {
+		return domain.CaseLog{}, errors.New("case study not found")
+	}
+
 	rev := c.revisions.Get(revisionID)
 
 	if "" == rev.Id || rev.EntityId != id {
@@ -240,7 +255,15 @@ func (c caseLogCRUDService) Restore(id string, revisionID string) (domain.CaseLo
 		return domain.CaseLog{}, err
 	}
 
+	// the same rule as Update: a published log stays pinned to its light, even
+	// when the snapshot being restored pointed somewhere else
+	if domain.StatusPublished == existing.Status && restored.ProjectId != existing.ProjectId {
+		return domain.CaseLog{}, errors.New("unpublish before moving a log to another light")
+	}
+
 	restored.Id = id
+	restored.Status = existing.Status
+	restored.PublishedAt = existing.PublishedAt
 	restored.UpdatedAt = nowStamp()
 
 	if err := c.repo.Set(restored); nil != err {
