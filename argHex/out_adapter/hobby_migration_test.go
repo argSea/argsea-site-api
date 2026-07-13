@@ -93,6 +93,7 @@ func oldActiveHobby() bson.M {
 		"marker":      "buoy",
 		"char":        "Fl W 3s",
 		"wear":        0.4,
+		"tags":        []string{"plex", "htpc"},
 		"order":       1,
 	}
 }
@@ -141,6 +142,13 @@ func TestMigrationLiftsAnActiveDocToTheShipsLogShape(t *testing.T) {
 	// legacy fields are left as dead data, never $unset
 	if true != doc["active"] || "keen" != doc["disposition"] || "buoy" != doc["marker"] || "Fl W 3s" != doc["char"] || 0.4 != doc["wear"] {
 		t.Fatalf("legacy fields must survive untouched: %+v", doc)
+	}
+
+	// tags stay on the contract: no rename, no derivation, values intact
+	tags, ok := doc["tags"].([]string)
+
+	if !ok || 2 != len(tags) || "plex" != tags[0] || "htpc" != tags[1] {
+		t.Fatalf("tags must ride the migration untouched, got %v", doc["tags"])
 	}
 }
 

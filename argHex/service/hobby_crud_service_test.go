@@ -115,6 +115,34 @@ func TestCoordAndFromRoundTrip(t *testing.T) {
 	}
 }
 
+func TestTagsSurviveCreateAndUpdate(t *testing.T) {
+	hobbies := newHobbies()
+
+	// the home currently-learning card renders tags, so they must ride every
+	// write untouched
+	saved, err := hobbies.Create(domain.Hobby{Name: "Plex", State: domain.StateMoored, Tags: []string{"plex", "htpc"}})
+
+	if nil != err {
+		t.Fatalf("tagged create failed: %v", err)
+	}
+
+	stored := hobbies.Read(saved.Id)
+
+	if 2 != len(stored.Tags) || "plex" != stored.Tags[0] || "htpc" != stored.Tags[1] {
+		t.Fatalf("tags did not round-trip the create, got %+v", stored.Tags)
+	}
+
+	if _, err := hobbies.Update(domain.Hobby{Id: saved.Id, Name: "Plex", State: domain.StateMoored, Tags: []string{"plex"}}); nil != err {
+		t.Fatalf("tagged update failed: %v", err)
+	}
+
+	stored = hobbies.Read(saved.Id)
+
+	if 1 != len(stored.Tags) || "plex" != stored.Tags[0] {
+		t.Fatalf("tags did not survive the replace write, got %+v", stored.Tags)
+	}
+}
+
 func TestListActiveOnlyIsMooredOnly(t *testing.T) {
 	hobbies := newHobbies()
 

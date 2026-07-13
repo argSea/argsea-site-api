@@ -29,24 +29,26 @@ const (
 // on; both are pointers so an uncharted ship serializes coord/from as JSON null
 // rather than a phantom origin at 0,0. Seasons is a free string ("5", "¼", "").
 // Bearing, OffCourse, Floats, and Odds are the log's freeform prose; Service and
-// LastLog carry the dates. Order is a manual sort key so the keeper arranges the
-// log by hand.
+// LastLog carry the dates. Tags survive from the old shape: the home
+// currently-learning card renders them, and the migration never touches them.
+// Order is a manual sort key so the keeper arranges the log by hand.
 type Hobby struct {
-	Id        string `json:"id" bson:"_id,omitempty"`
-	Name      string `json:"name" bson:"name,omitempty"`
-	Service   string `json:"service" bson:"service,omitempty"`
-	State     string `json:"state" bson:"state"`
-	Coord     *Coord `json:"coord" bson:"coord"`
-	From      *Coord `json:"from" bson:"from"`
-	Seasons   string `json:"seasons" bson:"seasons"`
-	Bearing   string `json:"bearing" bson:"bearing,omitempty"`
-	LastLog   string `json:"lastLog" bson:"lastLog,omitempty"`
-	OffCourse string `json:"offCourse" bson:"offCourse,omitempty"`
-	Floats    string `json:"floats" bson:"floats,omitempty"`
-	Odds      string `json:"odds" bson:"odds,omitempty"`
-	Order     int    `json:"order" bson:"order"`
-	CreatedAt string `json:"createdAt" bson:"createdAt,omitempty"`
-	UpdatedAt string `json:"updatedAt" bson:"updatedAt,omitempty"`
+	Id        string   `json:"id" bson:"_id,omitempty"`
+	Name      string   `json:"name" bson:"name,omitempty"`
+	Service   string   `json:"service" bson:"service,omitempty"`
+	State     string   `json:"state" bson:"state"`
+	Coord     *Coord   `json:"coord" bson:"coord"`
+	From      *Coord   `json:"from" bson:"from"`
+	Seasons   string   `json:"seasons" bson:"seasons"`
+	Bearing   string   `json:"bearing" bson:"bearing,omitempty"`
+	LastLog   string   `json:"lastLog" bson:"lastLog,omitempty"`
+	OffCourse string   `json:"offCourse" bson:"offCourse,omitempty"`
+	Floats    string   `json:"floats" bson:"floats,omitempty"`
+	Odds      string   `json:"odds" bson:"odds,omitempty"`
+	Tags      []string `json:"tags" bson:"tags,omitempty"`
+	Order     int      `json:"order" bson:"order"`
+	CreatedAt string   `json:"createdAt" bson:"createdAt,omitempty"`
+	UpdatedAt string   `json:"updatedAt" bson:"updatedAt,omitempty"`
 }
 
 // Coord is a point on the wandering chart. Lat/Lon are plain floats: the keeper
