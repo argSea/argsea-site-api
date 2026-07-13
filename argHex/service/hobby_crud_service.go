@@ -21,6 +21,16 @@ func validateState(state string) error {
 	return nil
 }
 
+// clampBearings snaps a hobby's coord and wake origin into the chart window
+// before the write reaches the store, so an off-window bearing lands at the
+// nearest visible edge rather than off the chart. A null bearing is uncharted
+// and rides through untouched. The admin editor mirrors this clamp; here it is
+// the data-level truth that protects every client.
+func clampBearings(hobby *domain.Hobby) {
+	domain.ClampCoord(hobby.Coord)
+	domain.ClampCoord(hobby.From)
+}
+
 type hobbyCRUDService struct {
 	repo     out_port.HobbyRepo
 	activity in_port.ActivityService
@@ -46,6 +56,9 @@ func (h hobbyCRUDService) Create(hobby domain.Hobby) (domain.Hobby, error) {
 	if err := validateState(hobby.State); nil != err {
 		return domain.Hobby{}, err
 	}
+
+	// an off-window bearing snaps into the chart window before anything is stored
+	clampBearings(&hobby)
 
 	now := nowStamp()
 
@@ -104,6 +117,8 @@ func (h hobbyCRUDService) Update(hobby domain.Hobby) (domain.Hobby, error) {
 	if err := validateState(hobby.State); nil != err {
 		return domain.Hobby{}, err
 	}
+
+	clampBearings(&hobby)
 
 	hobby.CreatedAt = existing.CreatedAt
 	hobby.UpdatedAt = nowStamp()
