@@ -24,7 +24,7 @@ func (h hobbyFakeOutAdapter) List(activeOnly bool) (domain.Hobbies, error) {
 	var out domain.Hobbies
 
 	for _, hobby := range *h.hobbies {
-		if activeOnly && !hobby.Active {
+		if activeOnly && domain.StateMoored != hobby.State {
 			continue
 		}
 
@@ -57,4 +57,11 @@ func (h hobbyFakeOutAdapter) Remove(id string) error {
 	delete(*h.hobbies, id)
 
 	return nil
+}
+
+// Migrate is a no-op for the in-memory fake: it never holds old-shape docs. The
+// boot migration is a mongo $rename/$set concern, exercised over raw docs in the
+// adapter's own test.
+func (h hobbyFakeOutAdapter) Migrate() (int, error) {
+	return 0, nil
 }

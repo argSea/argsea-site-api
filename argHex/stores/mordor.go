@@ -229,6 +229,24 @@ func (m *Mordor) UpdateMany(filter interface{}, set interface{}) error {
 	return err
 }
 
+// UpdateManyRaw applies a caller-built update document to every matching doc and
+// returns how many were modified. Unlike UpdateMany it does not wrap the update
+// in $set, so the caller can mix operators like $rename and $set, as the hobby
+// boot migration does.
+func (m *Mordor) UpdateManyRaw(filter interface{}, update interface{}) (int64, error) {
+	if nil == m.collection {
+		return 0, errors.New("connection not setup")
+	}
+
+	result, err := m.collection.UpdateMany(m.ctx, filter, update)
+
+	if nil != err {
+		return 0, err
+	}
+
+	return result.ModifiedCount, nil
+}
+
 func (m *Mordor) Delete(key string) error {
 	if nil == m.collection {
 		return errors.New("connection not setup")

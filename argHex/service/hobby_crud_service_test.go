@@ -1,6 +1,8 @@
 package service_test
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/argSea/argsea-site-api/argHex/domain"
@@ -17,23 +19,24 @@ func newHobbies() in_port.HobbyCRUDService {
 	return service.NewHobbyCRUDService(out_adapter.NewHobbyFakeOutAdapter(), activity)
 }
 
-func TestMarkerAcceptsEmptyAndEachVocabularyValue(t *testing.T) {
+func TestStateAcceptsEachVocabularyValue(t *testing.T) {
 	hobbies := newHobbies()
 
-	// empty is the valid default; the site falls back to its default
-	// headstone, same as an absent stamp or light
-	for _, marker := range []string{"", "stone", "sticks", "driftwood", "cairn", "buoy", "lamp"} {
-		if _, err := hobbies.Create(domain.Hobby{Name: "Grave", Marker: marker}); nil != err {
-			t.Fatalf("expected marker %q accepted, got %v", marker, err)
+	for _, state := range []string{domain.StateMoored, domain.StatePort, domain.StateAdrift, domain.StateMarooned, domain.StateInkspill} {
+		if _, err := hobbies.Create(domain.Hobby{Name: "Piano", State: state}); nil != err {
+			t.Fatalf("expected state %q accepted, got %v", state, err)
 		}
 	}
 }
 
-func TestMarkerRejectsOutOfSetValue(t *testing.T) {
+func TestStateRejectsEmptyAndOutOfSetValue(t *testing.T) {
 	hobbies := newHobbies()
 
-	if _, err := hobbies.Create(domain.Hobby{Name: "Grave", Marker: "obelisk"}); nil == err {
-		t.Fatalf("expected an out-of-set marker rejected")
+	// empty is not a state: every ship stands somewhere
+	for _, state := range []string{"", "sunk", "MOORED"} {
+		if _, err := hobbies.Create(domain.Hobby{Name: "Piano", State: state}); nil == err {
+			t.Fatalf("expected state %q rejected", state)
+		}
 	}
 
 	// nothing rejected may have been written
@@ -43,50 +46,122 @@ func TestMarkerRejectsOutOfSetValue(t *testing.T) {
 		t.Fatalf("rejected create must persist nothing, found %d hobbies", len(all))
 	}
 
-	// the update path rejects too, and the stored marker survives untouched
-	saved, _ := hobbies.Create(domain.Hobby{Name: "Grave", Marker: "cairn"})
+	// the update path rejects too, and the stored state survives untouched
+	saved, _ := hobbies.Create(domain.Hobby{Name: "Piano", State: domain.StateMoored})
 
-	if _, err := hobbies.Update(domain.Hobby{Id: saved.Id, Name: "Grave", Marker: "obelisk"}); nil == err {
-		t.Fatalf("expected update to reject an out-of-set marker")
+	if _, err := hobbies.Update(domain.Hobby{Id: saved.Id, Name: "Piano", State: "sunk"}); nil == err {
+		t.Fatalf("expected update to reject an out-of-set state")
 	}
 
 	stored := hobbies.Read(saved.Id)
 
-	if "cairn" != stored.Marker {
-		t.Fatalf("rejected update must leave the stored marker intact, got %q", stored.Marker)
+	if domain.StateMoored != stored.State {
+		t.Fatalf("rejected update must leave the stored state intact, got %q", stored.State)
 	}
 }
 
-func TestWearAcceptsBoundsAndRejectsOutOfRange(t *testing.T) {
+func TestCoordAndFromRoundTrip(t *testing.T) {
 	hobbies := newHobbies()
 
-	// 0 is a real fraction (fresh stone), not an absent value; it must be
-	// accepted and must survive a replace write the same way featured/flagship do
-	for _, wear := range []float64{0, 0.5, 1} {
-		if _, err := hobbies.Create(domain.Hobby{Name: "Weathered", Wear: wear}); nil != err {
-			t.Fatalf("expected wear %v accepted, got %v", wear, err)
-		}
-	}
-
-	for _, wear := range []float64{-0.1, 1.1} {
-		if _, err := hobbies.Create(domain.Hobby{Name: "Weathered", Wear: wear}); nil == err {
-			t.Fatalf("expected wear %v rejected", wear)
-		}
-	}
-
-	saved, _ := hobbies.Create(domain.Hobby{Name: "Weathered", Wear: 0.75})
-
-	cleared, err := hobbies.Update(domain.Hobby{Id: saved.Id, Name: "Weathered", Wear: 0})
+	// a charted ship carries a coord and a wake origin
+	charted, err := hobbies.Create(domain.Hobby{
+		Name:  "Piano",
+		State: domain.StateAdrift,
+		Coord: &domain.Coord{Lat: 58.22, Lon: -7.5},
+		From:  &domain.Coord{Lat: 58.05, Lon: -7.1},
+	})
 
 	if nil != err {
-		t.Fatalf("update failed: %v", err)
+		t.Fatalf("charted create failed: %v", err)
 	}
 
-	if 0 != cleared.Wear {
-		t.Fatalf("expected wear 0 to survive the replace write, got %v", cleared.Wear)
+	back := hobbies.Read(charted.Id)
+
+	if nil == back.Coord || 58.22 != back.Coord.Lat || -7.5 != back.Coord.Lon {
+		t.Fatalf("coord did not round-trip, got %+v", back.Coord)
 	}
 
-	if 0 != hobbies.Read(saved.Id).Wear {
-		t.Fatalf("expected the stored document to also read wear 0")
+	if nil == back.From || 58.05 != back.From.Lat || -7.1 != back.From.Lon {
+		t.Fatalf("from did not round-trip, got %+v", back.From)
+	}
+
+	// an uncharted ship leaves both nil, which must serialize as JSON null
+	uncharted, err := hobbies.Create(domain.Hobby{Name: "Kite", State: domain.StateMarooned})
+
+	if nil != err {
+		t.Fatalf("uncharted create failed: %v", err)
+	}
+
+	stored := hobbies.Read(uncharted.Id)
+
+	if nil != stored.Coord || nil != stored.From {
+		t.Fatalf("an uncharted ship must keep coord and from nil, got %+v / %+v", stored.Coord, stored.From)
+	}
+
+	body, err := json.Marshal(stored)
+
+	if nil != err {
+		t.Fatalf("hobby did not marshal: %v", err)
+	}
+
+	if !strings.Contains(string(body), `"coord":null`) || !strings.Contains(string(body), `"from":null`) {
+		t.Fatalf("an uncharted ship must serialize coord and from as null, got %s", body)
+	}
+
+	charge, _ := json.Marshal(back)
+
+	if !strings.Contains(string(charge), `"coord":{"lat":58.22,"lon":-7.5}`) {
+		t.Fatalf("a charted ship must serialize coord as an object, got %s", charge)
+	}
+}
+
+func TestTagsSurviveCreateAndUpdate(t *testing.T) {
+	hobbies := newHobbies()
+
+	// the home currently-learning card renders tags, so they must ride every
+	// write untouched
+	saved, err := hobbies.Create(domain.Hobby{Name: "Plex", State: domain.StateMoored, Tags: []string{"plex", "htpc"}})
+
+	if nil != err {
+		t.Fatalf("tagged create failed: %v", err)
+	}
+
+	stored := hobbies.Read(saved.Id)
+
+	if 2 != len(stored.Tags) || "plex" != stored.Tags[0] || "htpc" != stored.Tags[1] {
+		t.Fatalf("tags did not round-trip the create, got %+v", stored.Tags)
+	}
+
+	if _, err := hobbies.Update(domain.Hobby{Id: saved.Id, Name: "Plex", State: domain.StateMoored, Tags: []string{"plex"}}); nil != err {
+		t.Fatalf("tagged update failed: %v", err)
+	}
+
+	stored = hobbies.Read(saved.Id)
+
+	if 1 != len(stored.Tags) || "plex" != stored.Tags[0] {
+		t.Fatalf("tags did not survive the replace write, got %+v", stored.Tags)
+	}
+}
+
+func TestListActiveOnlyIsMooredOnly(t *testing.T) {
+	hobbies := newHobbies()
+
+	moored, _ := hobbies.Create(domain.Hobby{Name: "Piano", State: domain.StateMoored})
+	hobbies.Create(domain.Hobby{Name: "Kite", State: domain.StateAdrift})
+
+	only, err := hobbies.List(true)
+
+	if nil != err {
+		t.Fatalf("active list failed: %v", err)
+	}
+
+	if 1 != len(only) || moored.Id != only[0].Id {
+		t.Fatalf("active list must return only the moored ship, got %+v", only)
+	}
+
+	all, _ := hobbies.List(false)
+
+	if 2 != len(all) {
+		t.Fatalf("the full list must return every ship, got %d", len(all))
 	}
 }

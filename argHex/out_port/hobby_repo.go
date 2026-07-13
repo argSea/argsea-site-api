@@ -8,4 +8,5 @@ type HobbyRepo interface {
 	Add(hobby domain.Hobby) (string, error)
 	Set(hobby domain.Hobby) error
 	Remove(id string) error
+	Migrate() (int, error)
 }
