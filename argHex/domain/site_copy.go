@@ -25,7 +25,7 @@ type SiteCopy struct {
 // Eggs are the master switches for the easter eggs. The struct is a pointer on
 // SiteCopy so legacy docs round-trip without it; consumers treat a missing
 // block as everything-on. The bools deliberately skip omitempty; dropping a
-// false would resurrect a switched-off egg on the next Save (see Hobby.Active).
+// false would resurrect a switched-off egg on the next Save (see Project.Flagship).
 type Eggs struct {
 	Bottle bool `json:"bottle" bson:"bottle"`
 	Cat    bool `json:"cat" bson:"cat"`

@@ -98,7 +98,7 @@ func TestIsBotCatchesCrawlersAndEmptyAgents(t *testing.T) {
 }
 
 func TestValidKind(t *testing.T) {
-	for _, kind := range []string{domain.SightingSail, domain.SightingFlip, domain.SightingRead, domain.SightingVisit, domain.SightingBottle} {
+	for _, kind := range []string{domain.SightingSail, domain.SightingFlip, domain.SightingRead, domain.SightingVisit, domain.SightingBottle, domain.SightingFlare} {
 		if !domain.ValidKind(kind) {
 			t.Fatalf("expected %q to be a valid kind", kind)
 		}

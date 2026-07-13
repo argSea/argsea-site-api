@@ -188,10 +188,22 @@ func main() {
 	projectService := service.NewProjectCRUDService(out_adapter.NewProjectMongoAdapter(projectMordor), noteRepo, revisionService, activityService)
 	in_adapter.NewProjectMuxAdapter(projectService, webAuth, projRouter)
 
-	// hobbies (graveyard)
+	// hobbies (the ship's log): a one-time boot migration lifts any old-shape
+	// docs to the five-state shape before the routes mount. It is idempotent, so
+	// every later boot moves nothing.
 	log.Println("Initializing hobby")
 	hobbyMordor := stores.NewMordor(mongo_db.DB.Collection(hobbyTable), context.Background())
-	hobbyService := service.NewHobbyCRUDService(out_adapter.NewHobbyMongoAdapter(hobbyMordor), activityService)
+	hobbyRepo := out_adapter.NewHobbyMongoAdapter(hobbyMordor)
+
+	if migrated, err := hobbyRepo.Migrate(); nil != err {
+		// the API stays up if the migration fails; unmigrated docs read with an
+		// empty state until a later boot lands them
+		log.Printf("hobby ships-log migration failed: %v\n", err)
+	} else {
+		log.Printf("hobby ships-log migration: %d doc(s) migrated\n", migrated)
+	}
+
+	hobbyService := service.NewHobbyCRUDService(hobbyRepo, activityService)
 	in_adapter.NewHobbyMuxAdapter(hobbyService, webAuth, hobbyRouter)
 
 	// site copy (signal flags), singleton

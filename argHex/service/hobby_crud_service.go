@@ -9,29 +9,13 @@ import (
 	"github.com/argSea/argsea-site-api/argHex/out_port"
 )
 
-// The marker vocabulary is closed for the same reason as the light's kind:
-// it selects a headstone graphic rendered on the public graveyard, so this
-// enum gate is the injection boundary for marker data.
-var hobbyMarkers = map[string]bool{"stone": true, "sticks": true, "driftwood": true, "cairn": true, "buoy": true, "lamp": true}
-
-// validateMarker checks marker against the closed vocabulary. An empty marker
-// is valid; the site falls back to its default headstone.
-func validateMarker(marker string) error {
-	if "" == marker {
-		return nil
-	}
-
-	if !hobbyMarkers[marker] {
-		return errors.New("marker must be one of stone, sticks, driftwood, cairn, buoy, lamp")
-	}
-
-	return nil
-}
-
-// validateWear checks wear is a fraction: 0 is a fresh stone, 1 is worn smooth.
-func validateWear(wear float64) error {
-	if 0 > wear || 1 < wear {
-		return errors.New("wear must be between 0 and 1")
+// validateState gates a hobby's state against the closed vocabulary the same
+// way the light's kind is gated: the value drives the ship's glyph on the public
+// chart, so this is the injection boundary for state. Empty is not a state; a
+// ship always stands somewhere.
+func validateState(state string) error {
+	if !domain.ValidHobbyState(state) {
+		return errors.New("state must be one of moored, port, adrift, marooned, inkspill")
 	}
 
 	return nil
@@ -58,13 +42,8 @@ func (h hobbyCRUDService) Read(id string) domain.Hobby {
 }
 
 func (h hobbyCRUDService) Create(hobby domain.Hobby) (domain.Hobby, error) {
-	// an invalid marker or wear never reaches the store; reject before
-	// anything is written
-	if err := validateMarker(hobby.Marker); nil != err {
-		return domain.Hobby{}, err
-	}
-
-	if err := validateWear(hobby.Wear); nil != err {
+	// an invalid state never reaches the store; reject before anything is written
+	if err := validateState(hobby.State); nil != err {
 		return domain.Hobby{}, err
 	}
 
@@ -94,9 +73,9 @@ func (h hobbyCRUDService) Create(hobby domain.Hobby) (domain.Hobby, error) {
 	return saved, nil
 }
 
-// nextOrder places a new hobby after everything already on the shelf:
-// max(order)+1 across all hobbies, active or resting. A failed list fails the
-// create; silently defaulting would collide at the front of the shelf.
+// nextOrder places a new hobby last in the log: max(order)+1 across every ship,
+// whatever its state. A failed list fails the create; silently defaulting would
+// collide at the head of the log.
 func (h hobbyCRUDService) nextOrder() (int, error) {
 	hobbies, err := h.repo.List(false)
 
@@ -122,11 +101,7 @@ func (h hobbyCRUDService) Update(hobby domain.Hobby) (domain.Hobby, error) {
 		return domain.Hobby{}, errors.New("hobby not found")
 	}
 
-	if err := validateMarker(hobby.Marker); nil != err {
-		return domain.Hobby{}, err
-	}
-
-	if err := validateWear(hobby.Wear); nil != err {
+	if err := validateState(hobby.State); nil != err {
 		return domain.Hobby{}, err
 	}
 

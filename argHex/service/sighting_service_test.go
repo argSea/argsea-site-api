@@ -38,6 +38,14 @@ func addEvent(t *testing.T, repo out_port.SightingRepo, day string, kind string,
 	}
 }
 
+func addFlare(t *testing.T, repo out_port.SightingRepo, day string, subject string, visitor string) {
+	t.Helper()
+
+	if _, err := repo.Add(domain.Sighting{Kind: domain.SightingFlare, Day: day, Path: "/hobbies", Subject: subject, Visitor: visitor, At: time.Now().UTC()}); nil != err {
+		t.Fatalf("add flare failed: %v", err)
+	}
+}
+
 func TestRecordStoresEachKind(t *testing.T) {
 	svc, repo := newSightings(t)
 
@@ -61,14 +69,24 @@ func TestRecordStoresEachKind(t *testing.T) {
 		t.Fatalf("recording a bottle failed: %v", err)
 	}
 
+	if err := svc.Record(domain.SightingBeacon{Kind: domain.SightingFlare, Path: "/hobbies", Subject: "piano", Ref: ""}, "203.0.113.7", "Mozilla/5.0"); nil != err {
+		t.Fatalf("recording a flare failed: %v", err)
+	}
+
 	window, err := repo.Window("")
 
 	if nil != err {
 		t.Fatalf("window read failed: %v", err)
 	}
 
-	if 5 != len(window) {
-		t.Fatalf("expected all five kinds stored, got %d", len(window))
+	if 6 != len(window) {
+		t.Fatalf("expected all six kinds stored, got %d", len(window))
+	}
+
+	flare := findKind(t, window, domain.SightingFlare)
+
+	if "piano" != flare.Subject {
+		t.Fatalf("a stored flare must carry its hobby subject, got %q", flare.Subject)
 	}
 
 	sail := findKind(t, window, domain.SightingSail)
@@ -149,6 +167,10 @@ func TestTrafficAggregateShape(t *testing.T) {
 	addEvent(t, repo, day(1), domain.SightingVisit, "abandoned-origami")
 	addEvent(t, repo, day(0), domain.SightingBottle, "")
 	addEvent(t, repo, day(2), domain.SightingBottle, "")
+	// flares from distinct visitors: piano ahead of chess in the roll call
+	addFlare(t, repo, day(0), "piano", "fv1")
+	addFlare(t, repo, day(0), "piano", "fv2")
+	addFlare(t, repo, day(1), "chess", "fv1")
 
 	report, err := svc.Traffic(7)
 
@@ -198,6 +220,22 @@ func TestTrafficAggregateShape(t *testing.T) {
 
 	if nil == report.TopHobby || "graveyard-chess" != report.TopHobby.Subject || 2 != report.TopHobby.Visits {
 		t.Fatalf("expected graveyard-chess with 2 visits as top hobby, got %+v", report.TopHobby)
+	}
+
+	if 3 != report.Flares {
+		t.Fatalf("expected three distinct-visitor flares, got %d", report.Flares)
+	}
+
+	if 2 != len(report.FlareRolls) {
+		t.Fatalf("expected two ships in the roll call, got %+v", report.FlareRolls)
+	}
+
+	if "piano" != report.FlareRolls[0].Subject || 2 != report.FlareRolls[0].Flares {
+		t.Fatalf("expected piano leading the roll call with 2, got %+v", report.FlareRolls[0])
+	}
+
+	if "chess" != report.FlareRolls[1].Subject || 1 != report.FlareRolls[1].Flares {
+		t.Fatalf("expected chess trailing with 1, got %+v", report.FlareRolls[1])
 	}
 
 	shares := map[string]int{}
@@ -275,6 +313,10 @@ func TestTrafficIsEmptyButShapedWhenNothingHappened(t *testing.T) {
 		t.Fatalf("an empty window has an empty, non-null ports list, got %+v", report.Ports)
 	}
 
+	if 0 != report.Flares || nil == report.FlareRolls || 0 != len(report.FlareRolls) {
+		t.Fatalf("an empty window has no flares and an empty, non-null roll call, got %d / %+v", report.Flares, report.FlareRolls)
+	}
+
 	body, err := json.Marshal(report)
 
 	if nil != err {
@@ -287,6 +329,76 @@ func TestTrafficIsEmptyButShapedWhenNothingHappened(t *testing.T) {
 
 	if !strings.Contains(string(body), `"bottles":0`) || !strings.Contains(string(body), `"topHobby":null`) {
 		t.Fatalf("wire shape must carry a zero bottle count and a null top hobby, got %s", body)
+	}
+
+	if !strings.Contains(string(body), `"flares":0`) || !strings.Contains(string(body), `"flareRolls":[]`) {
+		t.Fatalf("wire shape must carry a zero flare count and an empty roll call array, got %s", body)
+	}
+}
+
+func TestTrafficFlareRollCountsDistinctVisitors(t *testing.T) {
+	svc, repo := newSightings(t)
+	today := time.Now().UTC()
+	day := func(k int) string { return today.AddDate(0, 0, -k).Format("2006-01-02") }
+
+	// piano: the same visitor flares twice (counts once) plus a second visitor
+	addFlare(t, repo, day(0), "piano", "fv1")
+	addFlare(t, repo, day(0), "piano", "fv1")
+	addFlare(t, repo, day(1), "piano", "fv2")
+	// chess: two distinct visitors
+	addFlare(t, repo, day(0), "chess", "fv1")
+	addFlare(t, repo, day(0), "chess", "fv3")
+	// kite: a single visitor
+	addFlare(t, repo, day(0), "kite", "fv9")
+
+	report, err := svc.Traffic(7)
+
+	if nil != err {
+		t.Fatalf("traffic read failed: %v", err)
+	}
+
+	// piano 2 + chess 2 + kite 1: the total is the sum over the roll call
+	if 5 != report.Flares {
+		t.Fatalf("expected five distinct-visitor flares total, got %d", report.Flares)
+	}
+
+	// descending by count, ties broken on the lower subject: chess before piano
+	want := []domain.FlareRoll{
+		{Subject: "chess", Flares: 2},
+		{Subject: "piano", Flares: 2},
+		{Subject: "kite", Flares: 1},
+	}
+
+	if len(want) != len(report.FlareRolls) {
+		t.Fatalf("expected three ships in the roll call, got %+v", report.FlareRolls)
+	}
+
+	for i, roll := range want {
+		if roll != report.FlareRolls[i] {
+			t.Fatalf("roll call off at %d: got %+v, want %+v", i, report.FlareRolls[i], roll)
+		}
+	}
+}
+
+func TestTrafficFlareRollsAreEmptyWithoutFlares(t *testing.T) {
+	svc, repo := newSightings(t)
+	today := time.Now().UTC()
+	day := func(k int) string { return today.AddDate(0, 0, -k).Format("2006-01-02") }
+
+	addSail(t, repo, day(0), "v1", domain.PortDirect)
+
+	report, err := svc.Traffic(7)
+
+	if nil != err {
+		t.Fatalf("traffic read failed: %v", err)
+	}
+
+	if 0 != report.Flares {
+		t.Fatalf("expected no flares without any flare ping, got %d", report.Flares)
+	}
+
+	if nil == report.FlareRolls || 0 != len(report.FlareRolls) {
+		t.Fatalf("expected an empty, non-null roll call, got %+v", report.FlareRolls)
 	}
 }
 

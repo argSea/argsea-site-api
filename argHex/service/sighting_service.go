@@ -71,8 +71,9 @@ func (s sightingService) Record(beacon domain.SightingBeacon, ip string, userAge
 }
 
 // Traffic folds the window of sightings into the watch room's read: totals of
-// sails and bottles, a zero-filled per-day series, the busiest weekday, the top
-// flipped postcard, read note, and visited hobby, and the port shares.
+// sails, bottles, and flares, a zero-filled per-day series, the busiest weekday,
+// the top flipped postcard, read note, and visited hobby, the port shares, and
+// the per-ship flare roll call.
 func (s sightingService) Traffic(days int) (domain.TrafficReport, error) {
 	days = clampDays(days)
 	now := time.Now().UTC()
@@ -88,7 +89,8 @@ func (s sightingService) Traffic(days int) (domain.TrafficReport, error) {
 }
 
 // foldTraffic is the whole aggregate in one pass over the window, so it stays a
-// pure function of the rows and the clock: easy to read, easy to test.
+// pure function of the rows and the clock: easy to read, easy to test. Flares
+// are the one tally counted by distinct visitor per ship, not by raw ping.
 func foldTraffic(window domain.Sightings, now time.Time, days int) domain.TrafficReport {
 	order := make([]string, 0, days)
 	daySails := map[string]int{}
@@ -106,6 +108,9 @@ func foldTraffic(window domain.Sightings, now time.Time, days int) domain.Traffi
 	flipCounts := map[string]int{}
 	readCounts := map[string]int{}
 	visitCounts := map[string]int{}
+	// flares count distinct visitors per ship, not raw pings, so the roll call
+	// holds a visitor set per subject rather than a plain counter
+	flareVisitors := map[string]map[string]bool{}
 	totalSails := 0
 	totalBottles := 0
 
@@ -134,8 +139,18 @@ func foldTraffic(window domain.Sightings, now time.Time, days int) domain.Traffi
 			}
 		case domain.SightingBottle:
 			totalBottles++
+		case domain.SightingFlare:
+			if "" != sighting.Subject {
+				if nil == flareVisitors[sighting.Subject] {
+					flareVisitors[sighting.Subject] = map[string]bool{}
+				}
+
+				flareVisitors[sighting.Subject][sighting.Visitor] = true
+			}
 		}
 	}
+
+	flareRolls, totalFlares := flareRollCall(flareVisitors)
 
 	daySeries := make([]domain.TrafficDay, 0, len(order))
 	busiest := ""
@@ -159,12 +174,14 @@ func foldTraffic(window domain.Sightings, now time.Time, days int) domain.Traffi
 		Uniques:     len(windowVisitors),
 		Sails:       totalSails,
 		Bottles:     totalBottles,
+		Flares:      totalFlares,
 		Days:        daySeries,
 		Busiest:     busiest,
 		TopPostcard: topPostcard(flipCounts),
 		TopNote:     topNote(readCounts),
 		TopHobby:    topHobby(visitCounts),
 		Ports:       portShares(portCounts, totalSails),
+		FlareRolls:  flareRolls,
 	}
 }
 
@@ -234,6 +251,38 @@ func topSubject(counts map[string]int) (string, int) {
 	}
 
 	return top, best
+}
+
+// flareRollCall turns the per-ship visitor sets into the roll call: one entry
+// per ship carrying its distinct-visitor count, sorted by count and then by the
+// lower subject so the order never rides the map's iteration. Ships with no
+// distinct visitors never enter the sets, so no zero counts reach the response,
+// which stays an empty slice (never null) when no flares were sent. The returned
+// total is the sum across the roll call.
+func flareRollCall(flareVisitors map[string]map[string]bool) ([]domain.FlareRoll, int) {
+	rolls := []domain.FlareRoll{}
+	total := 0
+
+	for subject, visitors := range flareVisitors {
+		count := len(visitors)
+
+		if 0 == count {
+			continue
+		}
+
+		rolls = append(rolls, domain.FlareRoll{Subject: subject, Flares: count})
+		total += count
+	}
+
+	sort.Slice(rolls, func(i, j int) bool {
+		if rolls[i].Flares != rolls[j].Flares {
+			return rolls[i].Flares > rolls[j].Flares
+		}
+
+		return rolls[i].Subject < rolls[j].Subject
+	})
+
+	return rolls, total
 }
 
 // portShares turns raw per-port sail counts into integer percentages, sorted

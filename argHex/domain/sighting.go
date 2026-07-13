@@ -38,14 +38,15 @@ type SightingBeacon struct {
 }
 
 // the kinds of ping the shore sends: a page view, a light overlay opened on a
-// project, a journal note opened, a hobby graveyard record opened, and a proverb
-// bottle served from the crossing boat.
+// project, a journal note opened, a hobby record opened, a proverb bottle served
+// from the crossing boat, and a flare sent up for an overdue ship in the log.
 const (
 	SightingSail   = "sail"
 	SightingFlip   = "flip"
 	SightingRead   = "read"
 	SightingVisit  = "visit"
 	SightingBottle = "bottle"
+	SightingFlare  = "flare"
 )
 
 // the port a visitor came through, bucketed from the referrer so the raw
@@ -78,7 +79,7 @@ var botNeedles = []string{"bot", "crawl", "spider", "preview", "fetch", "curl", 
 // ValidKind reports whether kind is one the shore is allowed to send.
 func ValidKind(kind string) bool {
 	return SightingSail == kind || SightingFlip == kind || SightingRead == kind ||
-		SightingVisit == kind || SightingBottle == kind
+		SightingVisit == kind || SightingBottle == kind || SightingFlare == kind
 }
 
 // ValidPath rejects anything that is not a plain site path: it must be rooted,
@@ -174,19 +175,22 @@ func refHost(ref string) string {
 
 // TrafficReport is the watch room's read of the tally over a window: totals,
 // a zero-filled per-day series, the busiest weekday, the top flipped postcard,
-// read note, and visited hobby, and the port shares. Uniques and sails stay
-// sail-only; bottles is the raw count of proverb bottles served. It carries ids
+// read note, and visited hobby, the port shares, and the flare roll call.
+// Uniques and sails stay sail-only; bottles is the raw count of proverb bottles
+// served; flares is the total across every ship in the roll call. It carries ids
 // only; the admin resolves them to titles from its own store.
 type TrafficReport struct {
 	Uniques     int           `json:"uniques"`
 	Sails       int           `json:"sails"`
 	Bottles     int           `json:"bottles"`
+	Flares      int           `json:"flares"`
 	Days        []TrafficDay  `json:"days"`
 	Busiest     string        `json:"busiest"`
 	TopPostcard *TopPostcard  `json:"topPostcard"`
 	TopNote     *TopNote      `json:"topNote"`
 	TopHobby    *TopHobby     `json:"topHobby"`
 	Ports       []TrafficPort `json:"ports"`
+	FlareRolls  []FlareRoll   `json:"flareRolls"`
 }
 
 type TrafficDay struct {
@@ -208,6 +212,13 @@ type TopNote struct {
 type TopHobby struct {
 	Subject string `json:"subject"`
 	Visits  int    `json:"visits"`
+}
+
+// FlareRoll is one ship's tally in the roll call: how many distinct visitors
+// sent up a flare for it in the window. Subject is the hobby id.
+type FlareRoll struct {
+	Subject string `json:"subject"`
+	Flares  int    `json:"flares"`
 }
 
 type TrafficPort struct {

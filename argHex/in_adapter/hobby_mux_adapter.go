@@ -34,8 +34,8 @@ func NewHobbyMuxAdapter(hobby in_port.HobbyCRUDService, auth *WebAuth, router *m
 	return &a
 }
 
-// List returns the graveyard. ?active=true narrows to what is currently being
-// learned; without it, active and resting hobbies both come back.
+// List returns the ship's log. ?active=true narrows to the moored ships, the
+// ones at their berth; without it, every ship in the log comes back.
 func (a hobbyMuxAdapter) List(w http.ResponseWriter, r *http.Request) {
 	hobbies, err := a.hobby.List(queryFlag(r, "active"))
 

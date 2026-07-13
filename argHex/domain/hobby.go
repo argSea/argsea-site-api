@@ -2,33 +2,62 @@ package domain
 
 type Hobbies []Hobby
 
-// Hobby is a "graveyard" entry: currently-learning (active) or resting. Order
-// is a manual sort key so the keeper can arrange the headstones by hand.
-// Service/Char/Disposition/Log/LastLog/Found/Cause/Return are the register's
-// freeform prose fields. Marker is the headstone shape, closed vocabulary
-// like the light's kind; Wear is its weathering, a fraction like the light's
-// period is a bounded number. Dates/Epitaph/Eulogy are dormant postcard-era
-// fields: no longer written by the admin, preserved so old documents and
-// revisions stay readable (same precedent as Project's dormant fields).
+// hobbyStates is the closed vocabulary of ways a ship stands in the log: moored
+// at its berth, made port elsewhere, adrift, marooned, or its bearing smudged to
+// an inkspill. It gates state the same way the light's kind gates a project.
+var hobbyStates = map[string]bool{
+	StateMoored:   true,
+	StatePort:     true,
+	StateAdrift:   true,
+	StateMarooned: true,
+	StateInkspill: true,
+}
+
+// the five states a ship in the log can stand in. A hobby always carries one;
+// there is no empty state, unlike an absent stamp or light.
+const (
+	StateMoored   = "moored"
+	StatePort     = "port"
+	StateAdrift   = "adrift"
+	StateMarooned = "marooned"
+	StateInkspill = "inkspill"
+)
+
+// Hobby is one ship in the ship's log: a pursuit at its last known bearing on
+// the wandering chart. State is the closed vocabulary above, validated on write.
+// Coord is where the ship sits on the chart and From is the wake it trailed in
+// on; both are pointers so an uncharted ship serializes coord/from as JSON null
+// rather than a phantom origin at 0,0. Seasons is a free string ("5", "¼", "").
+// Bearing, OffCourse, Floats, and Odds are the log's freeform prose; Service and
+// LastLog carry the dates. Order is a manual sort key so the keeper arranges the
+// log by hand.
 type Hobby struct {
-	Id          string   `json:"id" bson:"_id,omitempty"`
-	Name        string   `json:"name" bson:"name,omitempty"`
-	Dates       string   `json:"dates" bson:"dates,omitempty"` // dormant
-	Active      bool     `json:"active" bson:"active"`
-	Epitaph     string   `json:"epitaph" bson:"epitaph,omitempty"` // dormant
-	Eulogy      string   `json:"eulogy" bson:"eulogy,omitempty"`   // dormant
-	Tags        []string `json:"tags" bson:"tags,omitempty"`
-	Order       int      `json:"order" bson:"order"`
-	Service     string   `json:"service" bson:"service,omitempty"`
-	Char        string   `json:"char" bson:"char,omitempty"`
-	Disposition string   `json:"disposition" bson:"disposition,omitempty"`
-	Log         string   `json:"log" bson:"log,omitempty"`
-	LastLog     string   `json:"lastLog" bson:"lastLog,omitempty"`
-	Found       string   `json:"found" bson:"found,omitempty"`
-	Cause       string   `json:"cause" bson:"cause,omitempty"`
-	Return      string   `json:"return" bson:"return,omitempty"`
-	Marker      string   `json:"marker" bson:"marker,omitempty"` // stone | sticks | driftwood | cairn | buoy | lamp
-	Wear        float64  `json:"wear" bson:"wear"`               // no omitempty: 0 is real weathering; 0.0-1.0
-	CreatedAt   string   `json:"createdAt" bson:"createdAt,omitempty"`
-	UpdatedAt   string   `json:"updatedAt" bson:"updatedAt,omitempty"`
+	Id        string `json:"id" bson:"_id,omitempty"`
+	Name      string `json:"name" bson:"name,omitempty"`
+	Service   string `json:"service" bson:"service,omitempty"`
+	State     string `json:"state" bson:"state"`
+	Coord     *Coord `json:"coord" bson:"coord"`
+	From      *Coord `json:"from" bson:"from"`
+	Seasons   string `json:"seasons" bson:"seasons"`
+	Bearing   string `json:"bearing" bson:"bearing,omitempty"`
+	LastLog   string `json:"lastLog" bson:"lastLog,omitempty"`
+	OffCourse string `json:"offCourse" bson:"offCourse,omitempty"`
+	Floats    string `json:"floats" bson:"floats,omitempty"`
+	Odds      string `json:"odds" bson:"odds,omitempty"`
+	Order     int    `json:"order" bson:"order"`
+	CreatedAt string `json:"createdAt" bson:"createdAt,omitempty"`
+	UpdatedAt string `json:"updatedAt" bson:"updatedAt,omitempty"`
+}
+
+// Coord is a point on the wandering chart. Lat/Lon are plain floats: the keeper
+// charts fictional waters, so there is no range to validate beyond being finite.
+type Coord struct {
+	Lat float64 `json:"lat" bson:"lat"`
+	Lon float64 `json:"lon" bson:"lon"`
+}
+
+// ValidHobbyState reports whether state is one the log allows. Empty is not a
+// state: every ship stands somewhere.
+func ValidHobbyState(state string) bool {
+	return hobbyStates[state]
 }
