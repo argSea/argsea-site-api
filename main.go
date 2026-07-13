@@ -124,6 +124,8 @@ func main() {
 
 	userTable := "users"
 	projectTable := "projects"
+	caselogTable := "caselogs"
+	blocksetTable := "blocksets"
 	noteTable := "notes"
 	hobbyTable := "hobbies"
 	siteCopyTable := "siteCopy"
@@ -140,6 +142,8 @@ func main() {
 	// routers
 	userRouter := router.PathPrefix("/1/user").Subrouter()
 	projRouter := router.PathPrefix("/1/project").Subrouter()
+	caselogRouter := router.PathPrefix("/1/caselog").Subrouter()
+	blocksetRouter := router.PathPrefix("/1/blockset").Subrouter()
 	noteRouter := router.PathPrefix("/1/note").Subrouter()
 	hobbyRouter := router.PathPrefix("/1/hobby").Subrouter()
 	copyRouter := router.PathPrefix("/1/copy").Subrouter()
@@ -185,8 +189,43 @@ func main() {
 	// projects (postcards)
 	log.Println("Initializing project")
 	projectMordor := stores.NewMordor(mongo_db.DB.Collection(projectTable), context.Background())
-	projectService := service.NewProjectCRUDService(out_adapter.NewProjectMongoAdapter(projectMordor), noteRepo, revisionService, activityService)
+	projectRepo := out_adapter.NewProjectMongoAdapter(projectMordor)
+	projectService := service.NewProjectCRUDService(projectRepo, noteRepo, revisionService, activityService)
 	in_adapter.NewProjectMuxAdapter(projectService, webAuth, projRouter)
+
+	// case studies (the full log): each project's long-form story as its own
+	// document. A one-time boot migration lifts any legacy project.caseStudy
+	// into a published caselog before the routes mount; it reads the dormant
+	// field straight off the projects collection and is idempotent, so every
+	// later boot moves nothing. Block sets seed their one header template.
+	log.Println("Initializing caselog")
+	caselogMordor := stores.NewMordor(mongo_db.DB.Collection(caselogTable), context.Background())
+	caselogRepo := out_adapter.NewCaseLogMongoAdapter(caselogMordor)
+	caselogService := service.NewCaseLogCRUDService(caselogRepo, projectRepo, revisionService, activityService)
+
+	caselogMigration := service.NewCaseLogMigration(caselogRepo, out_adapter.NewCaseStudySourceMongoAdapter(projectMordor))
+
+	if migrated, err := caselogMigration.Run(); nil != err {
+		// the API stays up if the migration fails; a later boot retries the
+		// projects that did not land a log yet
+		log.Printf("caselog migration failed: %v\n", err)
+	} else {
+		log.Printf("caselog migration: %d log(s) migrated\n", migrated)
+	}
+
+	in_adapter.NewCaseLogMuxAdapter(caselogService, webAuth, caselogRouter)
+
+	log.Println("Initializing blockset")
+	blocksetMordor := stores.NewMordor(mongo_db.DB.Collection(blocksetTable), context.Background())
+	blocksetService := service.NewBlockSetService(out_adapter.NewBlockSetMongoAdapter(blocksetMordor), activityService)
+
+	if err := blocksetService.Seed(); nil != err {
+		// the API stays up without the seed (the endpoints still work); the next
+		// boot retries
+		log.Printf("blockset seed failed: %v\n", err)
+	}
+
+	in_adapter.NewBlockSetMuxAdapter(blocksetService, webAuth, blocksetRouter)
 
 	// hobbies (the ship's log): a one-time boot migration lifts any old-shape
 	// docs to the five-state shape before the routes mount. It is idempotent, so

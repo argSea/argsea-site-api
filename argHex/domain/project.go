@@ -69,11 +69,10 @@ type ProjectFact struct {
 // production"). Body is long-form rich text stored as a sanitized HTML string
 // (banked decision). Images is the entry's photo gallery, first entry is the
 // entry photo by convention; Image is the postcard-era single photo the site
-// falls back to when Images is empty. CaseStudy is raw markdown in the
-// keeper's dialect, stored verbatim (not sanitized like Body: single-admin
-// authoring, and the site renders it at build time). NoteIds ties journal
-// entries to this light by stable Note id. Flagship marks a light for the
-// hero's flagship-plus-two window. PostcardTo/PostcardFrom/Postmarked/Stamp
+// falls back to when Images is empty. The full case study now lives in its own
+// caselog document keyed on this project's id, not on the project. NoteIds ties
+// journal entries to this light by stable Note id. Flagship marks a light for
+// the hero's flagship-plus-two window. PostcardTo/PostcardFrom/Postmarked/Stamp
 // are dormant postcard-era fields: no longer written by the admin, preserved
 // so old documents and revisions stay readable.
 type Project struct {
@@ -87,14 +86,13 @@ type Project struct {
 	PostcardTo   string        `json:"postcardTo" bson:"postcardTo,omitempty"`
 	PostcardFrom string        `json:"postcardFrom" bson:"postcardFrom,omitempty"`
 	Postmarked   string        `json:"postmarked" bson:"postmarked,omitempty"` // freeform display string
-	Slug         string        `json:"slug" bson:"slug,omitempty"`             // required + unique (case-insensitive) once caseStudy is set; public route /projects/<slug>
+	Slug         string        `json:"slug" bson:"slug,omitempty"`             // optional; unique (case-insensitive) when set; public route /projects/<slug>
 	Image        *string       `json:"image" bson:"image,omitempty"`           // nullable media name (legacy single photo)
 	Stamp        *Stamp        `json:"stamp" bson:"stamp,omitempty"`           // nullable postage decoration (dormant)
 	Light        *Light        `json:"light" bson:"light,omitempty"`           // nullable: nil burns as the default fixed white
 	Images       []string      `json:"images" bson:"images,omitempty"`         // gallery media names, capped at 6, first entry is the entry photo
 	FirstLit     string        `json:"firstLit" bson:"firstLit,omitempty"`     // freeform year shown in the register
 	Facts        []ProjectFact `json:"facts" bson:"facts,omitempty"`           // stat strip, capped at 6 pairs
-	CaseStudy    string        `json:"caseStudy" bson:"caseStudy,omitempty"`   // raw markdown, stored verbatim
 	NoteIds      []string      `json:"noteIds" bson:"noteIds,omitempty"`       // tied journal entries, by stable Note id
 	Flagship     bool          `json:"flagship" bson:"flagship"`               // no omitempty: false must survive a replace write
 	Status       string        `json:"status" bson:"status,omitempty"`

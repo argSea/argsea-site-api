@@ -216,17 +216,13 @@ func (p projectCRUDService) validateNoteIds(noteIds []string) error {
 	return nil
 }
 
-// validateSlugForCaseStudy enforces the slug contract for a light with a case
-// study: the public route is /projects/<slug>, so a case study without a slug
-// is unreachable and a colliding slug is ambiguous. A project without a case
-// study is untouched; the slug field is free until then.
-func (p projectCRUDService) validateSlugForCaseStudy(project domain.Project) error {
-	if "" == project.CaseStudy {
-		return nil
-	}
-
+// validateSlug keeps the public route /projects/<slug> unambiguous: a slug is
+// optional on a project, but a non-empty one must be unique (case-insensitive)
+// across the rack. The required-when-published rule now lives in caselog
+// publish, where the case study that needs the route actually goes live.
+func (p projectCRUDService) validateSlug(project domain.Project) error {
 	if "" == project.Slug {
-		return errors.New("slug is required when caseStudy is set")
+		return nil
 	}
 
 	others, err := p.repo.List(false, 0)
@@ -301,7 +297,7 @@ func (p projectCRUDService) Create(project domain.Project) (domain.Project, erro
 		return domain.Project{}, err
 	}
 
-	if err := p.validateSlugForCaseStudy(project); nil != err {
+	if err := p.validateSlug(project); nil != err {
 		return domain.Project{}, err
 	}
 
@@ -382,7 +378,7 @@ func (p projectCRUDService) Update(project domain.Project) (domain.Project, erro
 		return domain.Project{}, err
 	}
 
-	if err := p.validateSlugForCaseStudy(project); nil != err {
+	if err := p.validateSlug(project); nil != err {
 		return domain.Project{}, err
 	}
 
