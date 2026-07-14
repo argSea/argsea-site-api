@@ -138,6 +138,7 @@ func main() {
 	doodleTable := "doodles"
 	carvingTable := "carvings"
 	sightingTable := "sightings"
+	loginLockTable := "login_locks"
 
 	// routers
 	userRouter := router.PathPrefix("/1/user").Subrouter()
@@ -344,9 +345,20 @@ func main() {
 	userService := service.NewUserCRUDService(userMongoAdapter)
 	in_adapter.NewUserMuxAdapter(userService, mediaService, webAuth, userRouter)
 
-	// auth: kept; sessions are issued through the same shared WebAuth store
+	// auth: kept; sessions are issued through the same shared WebAuth store. The
+	// login strike ledger locks a client IP after its sixth bad hail; the only
+	// reset is deleting its doc. A unique index on ip keeps one doc per client.
 	log.Println("Initializing auth")
-	userLoginService := service.NewUserLoginService(userMongoAdapter)
+	loginLockMordor := stores.NewMordor(mongo_db.DB.Collection(loginLockTable), context.Background())
+	loginLockAdapter := out_adapter.NewLoginLockMongoAdapter(loginLockMordor)
+
+	if err := loginLockAdapter.EnsureIndexes(); nil != err {
+		// the login still works without the index; the upsert just risks racing
+		// two docs for one IP until a later boot lands it
+		log.Printf("login lock index setup failed: %v\n", err)
+	}
+
+	userLoginService := service.NewUserLoginService(userMongoAdapter, loginLockAdapter, loginLockAdapter)
 	in_adapter.NewAuthMuxAdapter(userAuthService, userLoginService, webAuth, authRouter)
 
 	// the lantern: deploy-on-hoist. The config section IS the feature flag:
@@ -393,7 +405,7 @@ func main() {
 	// echo back origins
 	origins := handlers.AllowedOrigins([]string{"https://argsea.com", "https://www.argsea.com", "https://argsea.dev", "https://www.argsea.dev", "http://127.0.0.1:5173"})
 	methods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
-	headers := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization", "Content-Range", "range"})
+	headers := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization", "Content-Range", "range", "X-Argsea-Console"})
 	exposedHeaders := handlers.ExposedHeaders([]string{"Content-Range", "X-Total-Count"})
 	credential := handlers.AllowCredentials()
 
