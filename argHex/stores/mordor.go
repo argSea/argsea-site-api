@@ -266,3 +266,31 @@ func (m *Mordor) Delete(key string) error {
 
 	return nil
 }
+
+// Upsert applies a caller-built update to the one doc matching filter, inserting
+// it when none exists. It exists for a ledger keyed on a natural field rather
+// than an _id, like the login lock's client IP, so a first write creates the doc
+// and every later write updates it in one round trip.
+func (m *Mordor) Upsert(filter interface{}, update interface{}) error {
+	if nil == m.collection {
+		return errors.New("connection not setup")
+	}
+
+	opts := options.Update().SetUpsert(true)
+	_, err := m.collection.UpdateOne(m.ctx, filter, update, opts)
+
+	return err
+}
+
+// DeleteBy removes every doc matching a single-field equality. Unlike Delete it
+// keys on an arbitrary field, not the _id, so the login lock ledger can clear a
+// client's slate by its IP.
+func (m *Mordor) DeleteBy(field string, value interface{}) error {
+	if nil == m.collection {
+		return errors.New("connection not setup")
+	}
+
+	_, err := m.collection.DeleteMany(m.ctx, bson.M{field: value})
+
+	return err
+}

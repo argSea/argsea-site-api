@@ -13,6 +13,16 @@ import (
 	"github.com/gorilla/sessions"
 )
 
+// consoleHeader is the marker the admin console sets on its own login request.
+// Its presence is how a console hail is told apart from a direct one: present
+// gets the JSON error its SPA reads to launch the flood, absent gets sent adrift.
+const consoleHeader = "X-Argsea-Console"
+
+// adriftPath is where a refused direct hail is sent: a route that 302s back to
+// itself, an endless drift for anything that follows redirects. It is the mount
+// point of the trap route under the /1/auth prefix.
+const adriftPath = "/1/auth/adrift/"
+
 type authMuxAdapter struct {
 	authService  in_port.AuthService
 	loginService in_port.UserLoginService
@@ -35,6 +45,7 @@ func NewAuthMuxAdapter(a in_port.AuthService, l in_port.UserLoginService, webAut
 	r.HandleFunc("/login/", adapter.Login).Methods("POST")
 	r.HandleFunc("/logout/", adapter.Logout).Methods("GET")
 	r.HandleFunc("/validate/", adapter.Validate).Methods("GET")
+	r.HandleFunc("/adrift/", adapter.Adrift).Methods("GET")
 
 }
 
@@ -130,16 +141,10 @@ func (a authMuxAdapter) Login(w http.ResponseWriter, r *http.Request) {
 	var user domain.User
 	json.NewDecoder(r.Body).Decode(&user)
 
-	user, err := a.loginService.Login(user)
+	user, err := a.loginService.Login(user, clientIP(r))
 
 	if nil != err {
-		response := data_objects.ErroredResponseObject{
-			Status:  "error",
-			Code:    400,
-			Message: err.Error(),
-		}
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(response)
+		a.refuseHail(w, r, err)
 		return
 	}
 
@@ -164,6 +169,33 @@ func (a authMuxAdapter) Login(w http.ResponseWriter, r *http.Request) {
 		UserID:   user.Id,
 		Token:    token,
 	})
+}
+
+// refuseHail answers a failed login. The console marks its request, so its SPA
+// gets the 400 JSON it reads to launch the flood (the struck line when struck,
+// the generic credentials line otherwise, same status either way). A direct hail
+// carries no marker and gets no answer worth reading: a 302 into a drift that
+// loops back on itself forever.
+func (a authMuxAdapter) refuseHail(w http.ResponseWriter, r *http.Request, err error) {
+	if "" != r.Header.Get(consoleHeader) {
+		response := data_objects.ErroredResponseObject{
+			Status:  "error",
+			Code:    400,
+			Message: err.Error(),
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	http.Redirect(w, r, adriftPath, http.StatusFound)
+}
+
+// Adrift answers the trap route with a 302 back to itself, an endless drift for
+// anything that follows redirects. curl -L loops to its cap; a browser reports a
+// redirect loop. There is no body worth reading.
+func (a authMuxAdapter) Adrift(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, adriftPath, http.StatusFound)
 }
 
 func (a authMuxAdapter) Validate(w http.ResponseWriter, r *http.Request) {

@@ -11,6 +11,7 @@ import (
 	"github.com/argSea/argsea-site-api/argHex/domain"
 	"github.com/argSea/argsea-site-api/argHex/in_adapter"
 	"github.com/argSea/argsea-site-api/argHex/in_port"
+	"github.com/argSea/argsea-site-api/argHex/out_adapter"
 	"github.com/argSea/argsea-site-api/argHex/out_port"
 	"github.com/argSea/argsea-site-api/argHex/service"
 	"github.com/gorilla/mux"
@@ -79,7 +80,8 @@ func newLoginRouter(t *testing.T, storedRole string) (in_port.AuthService, *mux.
 
 	authService := service.NewJWTAuthService(testSecret)
 	webAuth := in_adapter.NewWebAuth(authService, testSecret, "argsea.com")
-	loginService := service.NewUserLoginService(repo)
+	lockRepo := out_adapter.NewLoginLockFakeOutAdapter()
+	loginService := service.NewUserLoginService(repo, lockRepo, lockRepo)
 
 	router := mux.NewRouter()
 	in_adapter.NewAuthMuxAdapter(authService, loginService, webAuth, router.PathPrefix("/1/auth").Subrouter())
@@ -145,8 +147,9 @@ func TestLoginIgnoresRoleInRequestBody(t *testing.T) {
 
 func TestSignupStripsRole(t *testing.T) {
 	repo := &stubUserRepo{added: &domain.User{}}
+	lockRepo := out_adapter.NewLoginLockFakeOutAdapter()
 
-	var loginService in_port.UserLoginService = service.NewUserLoginService(repo)
+	var loginService in_port.UserLoginService = service.NewUserLoginService(repo, lockRepo, lockRepo)
 	var _ out_port.UserRepo = repo
 
 	if _, err := loginService.Signup(domain.User{UserName: "sneak", Role: in_port.PERM_ADMIN}); nil != err {
