@@ -143,3 +143,27 @@ func TestEveryWatchSaveWritesAKeepersLogLine(t *testing.T) {
 		t.Fatalf("no watch line reached the keeper's log: %+v", entries)
 	}
 }
+
+func TestANeverKeptWatchAnswersWithEmptyHolds(t *testing.T) {
+	watch, _ := newWatch(t)
+
+	got := watch.Get()
+
+	if nil == got.Bearings || nil == got.Quips {
+		t.Fatalf("nil holds would go over the wire as null: %+v", got)
+	}
+}
+
+func TestSaveNeverReturnsNilHolds(t *testing.T) {
+	watch, _ := newWatch(t)
+
+	saved, err := watch.Save(domain.Watch{Letter: "All quiet."})
+
+	if nil != err {
+		t.Fatalf("save failed: %v", err)
+	}
+
+	if nil == saved.Bearings || nil == saved.Quips {
+		t.Fatalf("nil holds would go over the wire as null: %+v", saved)
+	}
+}
