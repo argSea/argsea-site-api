@@ -23,4 +23,5 @@ const (
 	EntityCarving    = "carving"
 	EntityCaseLog    = "caselog"
 	EntityBlockSet   = "blockset"
+	EntityWatch      = "watch"
 )
