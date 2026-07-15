@@ -25,7 +25,23 @@ func NewWatchService(repo out_port.WatchRepo, activity in_port.ActivityService) 
 }
 
 func (s watchService) Get() domain.Watch {
-	return s.repo.Get()
+	return withEmptyHolds(s.repo.Get())
+}
+
+// withEmptyHolds swaps nil slices for empty ones before a watch goes over the
+// wire. A never-kept watch is the domain zero value, and encoding/json turns a
+// nil slice into null, which the desk and the front door read as a broken
+// record rather than an empty one.
+func withEmptyHolds(watch domain.Watch) domain.Watch {
+	if nil == watch.Bearings {
+		watch.Bearings = []domain.WatchBearing{}
+	}
+
+	if nil == watch.Quips {
+		watch.Quips = []string{}
+	}
+
+	return watch
 }
 
 // Save upserts the singleton. KeptAt is stamped here so a client can never
@@ -48,5 +64,5 @@ func (s watchService) Save(watch domain.Watch) (domain.Watch, error) {
 		log.Printf("activity record failed for watch %v: %v\n", saved.Id, err)
 	}
 
-	return saved, nil
+	return withEmptyHolds(saved), nil
 }
