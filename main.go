@@ -129,6 +129,7 @@ func main() {
 	noteTable := "notes"
 	hobbyTable := "hobbies"
 	siteCopyTable := "siteCopy"
+	watchTable := "watch"
 	suggestionTable := "suggestions"
 	activityTable := "activity"
 	revisionTable := "revisions"
@@ -148,6 +149,7 @@ func main() {
 	noteRouter := router.PathPrefix("/1/note").Subrouter()
 	hobbyRouter := router.PathPrefix("/1/hobby").Subrouter()
 	copyRouter := router.PathPrefix("/1/copy").Subrouter()
+	watchRouter := router.PathPrefix("/1/watch").Subrouter()
 	suggestionRouter := router.PathPrefix("/1/suggestion").Subrouter()
 	activityRouter := router.PathPrefix("/1/activity").Subrouter()
 	authRouter := router.PathPrefix("/1/auth").Subrouter()
@@ -251,6 +253,12 @@ func main() {
 	siteCopyMordor := stores.NewMordor(mongo_db.DB.Collection(siteCopyTable), context.Background())
 	siteCopyService := service.NewSiteCopyService(out_adapter.NewSiteCopyMongoAdapter(siteCopyMordor), activityService)
 	in_adapter.NewSiteCopyMuxAdapter(siteCopyService, webAuth, copyRouter)
+
+	// the current watch (the /now record), singleton
+	log.Println("Initializing watch")
+	watchMordor := stores.NewMordor(mongo_db.DB.Collection(watchTable), context.Background())
+	watchService := service.NewWatchService(out_adapter.NewWatchMongoAdapter(watchMordor), activityService)
+	in_adapter.NewWatchMuxAdapter(watchService, webAuth, watchRouter)
 
 	// suggestion pool (the "next: ???" chips)
 	log.Println("Initializing suggestions")

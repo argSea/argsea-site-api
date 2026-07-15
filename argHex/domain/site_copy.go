@@ -18,6 +18,7 @@ type SiteCopy struct {
 	CatSpots       map[string]bool `json:"catSpots,omitempty" bson:"catSpots,omitempty"`
 	BottleProverbs []string        `json:"bottleProverbs" bson:"bottleProverbs,omitempty"`
 	Lighthouses    []Lighthouse    `json:"lighthouses" bson:"lighthouses,omitempty"`
+	Stores         []StoreDrawer   `json:"stores" bson:"stores,omitempty"`
 	WallGhost      *WallGhost      `json:"wallGhost,omitempty" bson:"wallGhost,omitempty"` // nullable: nil means the site uses its default ghost placement
 	UpdatedAt      string          `json:"updatedAt" bson:"updatedAt,omitempty"`
 }
@@ -57,4 +58,12 @@ type Lighthouse struct {
 	Name string `json:"name" bson:"name"`
 	Pos  string `json:"pos" bson:"pos"`
 	Line string `json:"line" bson:"line"`
+}
+
+// StoreDrawer is one drawer of the keeper's stores on the tool bench: a label
+// and the tools filed under it. The four-drawer cap is an admin rule; the API
+// stores whatever it is handed, like the cat maps above.
+type StoreDrawer struct {
+	Label string   `json:"label" bson:"label"`
+	Tools []string `json:"tools" bson:"tools"`
 }

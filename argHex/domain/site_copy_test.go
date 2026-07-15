@@ -104,7 +104,7 @@ func TestLegacyDocRoundTripsWithoutEggBlocks(t *testing.T) {
 	if err := bson.Unmarshal(raw, &doc); nil != err {
 		t.Fatalf("unmarshal to doc failed: %v", err)
 	}
-	for _, key := range []string{"eggs", "catPages", "catSpots", "bottleProverbs", "lighthouses", "wallGhost"} {
+	for _, key := range []string{"eggs", "catPages", "catSpots", "bottleProverbs", "lighthouses", "wallGhost", "stores"} {
 		if _, present := doc[key]; present {
 			t.Fatalf("legacy doc grew a %q block it never had: %v", key, doc)
 		}
@@ -155,6 +155,46 @@ func TestWallGhostSurvivesBsonRoundTrip(t *testing.T) {
 	}
 	if 12.5 != back.WallGhost.X || 80 != back.WallGhost.Y || -3 != back.WallGhost.Rotation || back.WallGhost.Enabled {
 		t.Fatalf("expected wall ghost {12.5 80 -3 false}, got %+v", back.WallGhost)
+	}
+}
+
+// The keeper's stores moved under admin control, so the drawers now ride the
+// SiteCopy singleton; like every list field they have to survive the
+// Replace-based Save whole, empty drawers included.
+
+func TestStoresSurviveBsonRoundTrip(t *testing.T) {
+	flags := domain.SiteCopy{
+		Stores: []domain.StoreDrawer{
+			{Label: "the bench", Tools: []string{"a good file", "the small hammer"}},
+			{Label: "spares", Tools: []string{}},
+		},
+	}
+
+	raw, err := bson.Marshal(flags)
+
+	if nil != err {
+		t.Fatalf("marshal failed: %v", err)
+	}
+
+	var doc bson.M
+	if err := bson.Unmarshal(raw, &doc); nil != err {
+		t.Fatalf("unmarshal to doc failed: %v", err)
+	}
+
+	drawers, ok := doc["stores"].(bson.A)
+	if !ok || 2 != len(drawers) {
+		t.Fatalf("stores block missing from the persisted doc: %v", doc)
+	}
+
+	var back domain.SiteCopy
+	if err := bson.Unmarshal(raw, &back); nil != err {
+		t.Fatalf("unmarshal to SiteCopy failed: %v", err)
+	}
+	if 2 != len(back.Stores) || "the bench" != back.Stores[0].Label || 2 != len(back.Stores[0].Tools) {
+		t.Fatalf("stores did not round-trip: %+v", back.Stores)
+	}
+	if "spares" != back.Stores[1].Label || 0 != len(back.Stores[1].Tools) {
+		t.Fatalf("the empty drawer did not round-trip: %+v", back.Stores)
 	}
 }
 
