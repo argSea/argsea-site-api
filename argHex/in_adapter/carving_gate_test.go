@@ -16,8 +16,8 @@ import (
 )
 
 // newCarvingRouter wires the carving adapter behind real services on
-// in-memory fakes, seeded with the seven v1 carvings, so the public/admin
-// split can be exercised end-to-end.
+// in-memory fakes, seeded with the shipped builtin carvings, so the
+// public/admin split can be exercised end-to-end.
 func newCarvingRouter(t *testing.T) (in_port.AuthService, in_port.CarvingService, *mux.Router) {
 	t.Helper()
 
@@ -64,8 +64,8 @@ func TestCarvingListReadIsPublic(t *testing.T) {
 	var carvings []domain.Carving
 	json.Unmarshal(rec.Body.Bytes(), &carvings)
 
-	if 7 != len(carvings) {
-		t.Fatalf("expected all seven seeded carvings, got %d", len(carvings))
+	if 25 != len(carvings) {
+		t.Fatalf("expected all twenty-five seeded carvings, got %d", len(carvings))
 	}
 
 	for _, carving := range carvings {

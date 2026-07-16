@@ -126,8 +126,8 @@ func (a carvingMuxAdapter) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete refuses a builtin or a still-bolted carving outright with a 409: the
-// seven v1 carvings are permanent so every spot always has a v1 to bolt back
-// to, and a live spot must never go dark or vanish at the next hoist.
+// seeded carvings are permanent so every spot always has its builtin to bolt
+// back to, and a live spot must never go dark or vanish at the next hoist.
 func (a carvingMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
 	if !requireAdmin(a.auth, w, r) {
 		return
