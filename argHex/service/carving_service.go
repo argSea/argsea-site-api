@@ -58,8 +58,8 @@ func (c carvingService) Create(carving domain.Carving) (domain.Carving, error) {
 }
 
 // Update writes a new name/svg but leaves the bolt alone; a spot only moves
-// through Bolt. The seeded v1s gate harder: name and svg are frozen outright,
-// so a spot can always be re-bolted back to its v1 look. A bolted carving
+// through Bolt. The seeded builtins gate harder: name and svg are frozen outright,
+// so a spot can always be re-bolted back to its builtin look. A bolted carving
 // gates too: its svg cannot be blanked, builtin or not, or the spot goes dark
 // at the next hoist; unbolt it (bolt another carving onto the spot) first.
 func (c carvingService) Update(carving domain.Carving) (domain.Carving, error) {
@@ -97,8 +97,8 @@ func (c carvingService) Update(carving domain.Carving) (domain.Carving, error) {
 	return saved, nil
 }
 
-// Delete refuses a builtin outright: the seven v1 carvings are permanent so
-// every spot always has a v1 to bolt back to. It also refuses any carving
+// Delete refuses a builtin outright: the seeded carvings are permanent so
+// every spot always has its builtin to bolt back to. It also refuses any carving
 // still bolted to a spot, the same guard figurehead's Delete holds for a
 // published design: unbolt it (bolt another carving onto the spot) first, so
 // exactly one carving holds a given spot at a time stays true.
@@ -132,7 +132,7 @@ func (c carvingService) Delete(id string) error {
 // figurehead's Publish uses for a pose.
 func (c carvingService) Bolt(id string, spot string) (domain.Carving, error) {
 	if !domain.CarvingSpots[spot] {
-		return domain.Carving{}, errors.New("spot must be one of the seven carving spots")
+		return domain.Carving{}, errors.New("spot must be one of the carving spots")
 	}
 
 	carving := c.repo.Get(id)
@@ -181,10 +181,11 @@ func (c carvingService) Bolt(id string, spot string) (domain.Carving, error) {
 	return c.repo.Get(id), nil
 }
 
-// Seed plants the seven shipped v1 carvings into an empty collection at
-// boot, each pre-bolted to its own spot: the current look on the site IS the
-// v1 bolt. Anything already in the collection means a keeper has been here;
-// the seed never runs twice and never touches existing carvings.
+// Seed plants the shipped builtin carvings at boot, each pre-bolted to its
+// own spot: the current look on the site IS the builtin bolt. It inserts per
+// record, matched by frozen builtin name, so a later wave of builtins lands
+// on a populated deployment without touching earlier seeds or anything a
+// keeper has carved since.
 func (c carvingService) Seed() error {
 	existing, err := c.repo.List()
 
@@ -192,13 +193,19 @@ func (c carvingService) Seed() error {
 		return err
 	}
 
-	if 0 != len(existing) {
-		return nil
+	planted := map[string]bool{}
+
+	for _, carving := range existing {
+		planted[carving.Name] = true
 	}
 
 	now := nowStamp()
 
 	for _, carving := range seedCarvings() {
+		if planted[carving.Name] {
+			continue
+		}
+
 		carving.Builtin = true
 		carving.CreatedAt = now
 		carving.UpdatedAt = now

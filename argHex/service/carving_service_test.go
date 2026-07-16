@@ -48,7 +48,7 @@ func carvingBySpot(t *testing.T, carvings in_port.CarvingService) map[string]dom
 	return out
 }
 
-func TestSeedPlantsSevenBuiltinCarvingsBoltedToTheirOwnSpot(t *testing.T) {
+func TestSeedPlantsABuiltinCarvingBoltedOntoEverySpot(t *testing.T) {
 	carvings, _ := newCarvings(t)
 
 	all, err := carvings.List()
@@ -57,8 +57,9 @@ func TestSeedPlantsSevenBuiltinCarvingsBoltedToTheirOwnSpot(t *testing.T) {
 		t.Fatalf("list failed: %v", err)
 	}
 
-	if 7 != len(all) {
-		t.Fatalf("expected seven seeded carvings, got %d", len(all))
+	// the seven v1s plus the eighteen promoted builtins, one per spot
+	if 25 != len(all) {
+		t.Fatalf("expected twenty-five seeded carvings, got %d", len(all))
 	}
 
 	bySpot := carvingBySpot(t, carvings)
@@ -75,25 +76,27 @@ func TestSeedPlantsSevenBuiltinCarvingsBoltedToTheirOwnSpot(t *testing.T) {
 func TestCarvingSeedIsIdempotent(t *testing.T) {
 	carvings, _ := newCarvings(t)
 
-	// second boot: the bench is populated, the seed must not touch it
+	// second boot: every builtin is already planted, the seed must add nothing
 	if err := carvings.Seed(); nil != err {
 		t.Fatalf("re-seed failed: %v", err)
 	}
 
 	all, _ := carvings.List()
 
-	if 7 != len(all) {
+	if 25 != len(all) {
 		t.Fatalf("re-seeding grew the bench to %d carvings", len(all))
 	}
 }
 
-func TestCarvingSeedLeavesANonEmptyCollectionAlone(t *testing.T) {
+func TestCarvingSeedLandsMissingBuiltinsOnAPopulatedBench(t *testing.T) {
 	activity := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())
 	carvings := service.NewCarvingService(out_adapter.NewCarvingFakeOutAdapter(), activity)
 
-	// a lone draft in the collection means a keeper has been here; anything
-	// present at all suppresses the seed, not just a full bench
-	if _, err := carvings.Create(domain.Carving{Name: "hand-carved", Svg: "<svg></svg>"}); nil != err {
+	// a keeper's draft on the bench must not suppress the seed: each missing
+	// builtin still lands, and the draft is left exactly as carved
+	fresh, err := carvings.Create(domain.Carving{Name: "hand-carved", Svg: "<svg></svg>"})
+
+	if nil != err {
 		t.Fatalf("create failed: %v", err)
 	}
 
@@ -103,8 +106,41 @@ func TestCarvingSeedLeavesANonEmptyCollectionAlone(t *testing.T) {
 
 	all, _ := carvings.List()
 
-	if 1 != len(all) {
-		t.Fatalf("the seed must not run against a populated collection, got %d carvings", len(all))
+	if 26 != len(all) {
+		t.Fatalf("expected the draft plus twenty-five seeds, got %d carvings", len(all))
+	}
+
+	for _, carving := range all {
+		if fresh.Id == carving.Id && (carving.Builtin || "<svg></svg>" != carving.Svg) {
+			t.Fatalf("the seed touched the keeper's draft: %+v", carving)
+		}
+	}
+}
+
+func TestCarvingSeedSkipsARecordAlreadyPresentByName(t *testing.T) {
+	activity := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())
+	carvings := service.NewCarvingService(out_adapter.NewCarvingFakeOutAdapter(), activity)
+
+	// a record wearing a builtin's frozen name claims that seed's slot: the
+	// per-record match is by name, so only the other builtins land
+	if _, err := carvings.Create(domain.Carving{Name: "The gull", Svg: "<svg>keeper's gull</svg>"}); nil != err {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	if err := carvings.Seed(); nil != err {
+		t.Fatalf("seed failed: %v", err)
+	}
+
+	all, _ := carvings.List()
+
+	if 25 != len(all) {
+		t.Fatalf("expected the name-claimed seed to be skipped, got %d carvings", len(all))
+	}
+
+	for _, carving := range all {
+		if "The gull" == carving.Name && (carving.Builtin || "<svg>keeper's gull</svg>" != carving.Svg) {
+			t.Fatalf("the seed overwrote the name-claimed record: %+v", carving)
+		}
 	}
 }
 
@@ -295,6 +331,29 @@ func TestBoltAllowsRebindingASpotOntoABuiltin(t *testing.T) {
 
 	if !found {
 		t.Fatalf("expected the boat spot to still be bolted, got %+v", saved.BoltedTo)
+	}
+}
+
+func TestBuiltinGuardsHoldForThePromotedSeeds(t *testing.T) {
+	carvings, _ := newCarvings(t)
+	seed := carvingBySpot(t, carvings)[domain.SpotMorseSeal]
+
+	// the promoted wave freezes exactly like the v1s: name and svg are
+	// immutable, delete is refused, only the bolt moves
+	if _, err := carvings.Update(domain.Carving{Id: seed.Id, Name: "defaced", Svg: seed.Svg}); !errors.Is(err, in_port.ErrCarvingBuiltin) {
+		t.Fatalf("expected the builtin guard on a promoted seed's name change, got %v", err)
+	}
+
+	if _, err := carvings.Update(domain.Carving{Id: seed.Id, Name: seed.Name, Svg: "<svg>defaced</svg>"}); !errors.Is(err, in_port.ErrCarvingBuiltin) {
+		t.Fatalf("expected the builtin guard on a promoted seed's svg change, got %v", err)
+	}
+
+	if err := carvings.Delete(seed.Id); !errors.Is(err, in_port.ErrCarvingBuiltin) {
+		t.Fatalf("expected the builtin guard deleting a promoted seed, got %v", err)
+	}
+
+	if _, err := carvings.Bolt(seed.Id, domain.SpotMorseSeal); nil != err {
+		t.Fatalf("expected a promoted seed to re-bolt onto its own spot, got %v", err)
 	}
 }
 

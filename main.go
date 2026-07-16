@@ -292,8 +292,8 @@ func main() {
 	in_adapter.NewFigureheadMuxAdapter(figureheadService, webAuth, figureheadRouter)
 
 	// the carving shop: raw-svg carvings bolted onto site spots; the seed
-	// plants the seven shipped v1 carvings, one per spot, into an empty
-	// collection so every spot always has a v1 to bolt back to
+	// plants the shipped builtin carvings, one per spot, inserting whichever
+	// are missing so every spot always has its builtin to bolt back to
 	log.Println("Initializing carving")
 	carvingMordor := stores.NewMordor(mongo_db.DB.Collection(carvingTable), context.Background())
 	carvingService := service.NewCarvingService(out_adapter.NewCarvingMongoAdapter(carvingMordor), activityService)

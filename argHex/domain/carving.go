@@ -2,11 +2,14 @@ package domain
 
 type Carvings []Carving
 
-// The seven spots a carving can bolt onto: every hand-carved svg on the site
-// minus the doodles (marginalia sketches never take a carving) and the
-// catalog-only entries that live admin-side as display notes (the postage
-// stamp, the wreck, the harbor cat itself). The set is frozen; a new spot
-// needs its own change, not a config toggle.
+// The spots a carving can bolt onto: every hand-carved svg on the site minus
+// the doodles (marginalia sketches never take a carving) and the catalog-only
+// entries that live admin-side as display notes (the postage stamp, the
+// wreck, the harbor cat itself). The first seven are the original v1 spots;
+// the rest are the 2026-07-16 promote wave, static art lifted off the built
+// pages. The Flannan memorial lights and the computed chart line-work stay
+// catalog notes on purpose. The set is frozen; a new spot needs its own
+// change, not a config toggle.
 const (
 	SpotLighthouseLogo = "lighthouse-logo"
 	SpotBoat           = "boat"
@@ -15,6 +18,25 @@ const (
 	SpotPaw            = "paw"
 	SpotWaveLine       = "wave-line"
 	SpotBoatWake       = "boat-wake"
+
+	SpotMorseSeal       = "morse-seal"
+	SpotPanelRose       = "panel-rose"
+	SpotFleetWake       = "fleet-wake"
+	SpotSeaSerpent      = "sea-serpent"
+	SpotSignalFlare     = "signal-flare"
+	SpotChartRose       = "chart-rose"
+	SpotCompassRoseStar = "compass-rose-star"
+	SpotSailTent        = "sail-tent"
+	SpotMooredLamp      = "moored-lamp"
+	SpotAdriftBoat      = "adrift-boat"
+	SpotAdriftWake      = "adrift-wake"
+	SpotMaroonedPalm    = "marooned-palm"
+	SpotPortAnchor      = "port-anchor"
+	SpotGull            = "gull"
+	SpotRouteLine       = "route-line"
+	SpotBuoy            = "buoy"
+	SpotCompass         = "compass"
+	SpotNotesLetter     = "notes-letter"
 )
 
 // CarvingSpots is the closed spot vocabulary: bolting anywhere outside it
@@ -27,12 +49,31 @@ var CarvingSpots = map[string]bool{
 	SpotPaw:            true,
 	SpotWaveLine:       true,
 	SpotBoatWake:       true,
+
+	SpotMorseSeal:       true,
+	SpotPanelRose:       true,
+	SpotFleetWake:       true,
+	SpotSeaSerpent:      true,
+	SpotSignalFlare:     true,
+	SpotChartRose:       true,
+	SpotCompassRoseStar: true,
+	SpotSailTent:        true,
+	SpotMooredLamp:      true,
+	SpotAdriftBoat:      true,
+	SpotAdriftWake:      true,
+	SpotMaroonedPalm:    true,
+	SpotPortAnchor:      true,
+	SpotGull:            true,
+	SpotRouteLine:       true,
+	SpotBuoy:            true,
+	SpotCompass:         true,
+	SpotNotesLetter:     true,
 }
 
 // Carving is one raw-svg block cut at the bench, bolted onto zero or more
-// spots. Builtin marks the seven shipped v1 seeds: their Name and Svg are
-// frozen so every spot always has a v1 to bolt back to, but BoltedTo stays
-// mutable even on a builtin, since re-bolting a spot to its own v1 must
+// spots. Builtin marks the shipped seeds: their Name and Svg are frozen so
+// every spot always has its builtin to bolt back to, but BoltedTo stays
+// mutable even on a builtin, since re-bolting a spot to its own builtin must
 // always be possible. Exactly one carving holds a given spot at a time;
 // bolting it elsewhere strips it from whoever held it.
 type Carving struct {
