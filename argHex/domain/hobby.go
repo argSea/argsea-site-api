@@ -31,7 +31,8 @@ const (
 // Bearing, OffCourse, Floats, and Odds are the log's freeform prose; Service and
 // LastLog carry the dates. Tags survive from the old shape: the home
 // currently-learning card renders them, and the migration never touches them.
-// Order is a manual sort key so the keeper arranges the log by hand.
+// NoteIds ties journal entries to this ship by stable Note id. Order is a
+// manual sort key so the keeper arranges the log by hand.
 type Hobby struct {
 	Id        string   `json:"id" bson:"_id,omitempty"`
 	Name      string   `json:"name" bson:"name,omitempty"`
@@ -46,6 +47,7 @@ type Hobby struct {
 	Floats    string   `json:"floats" bson:"floats,omitempty"`
 	Odds      string   `json:"odds" bson:"odds,omitempty"`
 	Tags      []string `json:"tags" bson:"tags,omitempty"`
+	NoteIds   []string `json:"noteIds" bson:"noteIds,omitempty"` // tied journal entries, by stable Note id
 	Order     int      `json:"order" bson:"order"`
 	CreatedAt string   `json:"createdAt" bson:"createdAt,omitempty"`
 	UpdatedAt string   `json:"updatedAt" bson:"updatedAt,omitempty"`

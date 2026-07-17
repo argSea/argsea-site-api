@@ -245,7 +245,7 @@ func main() {
 		log.Printf("hobby ships-log migration: %d doc(s) migrated\n", migrated)
 	}
 
-	hobbyService := service.NewHobbyCRUDService(hobbyRepo, activityService)
+	hobbyService := service.NewHobbyCRUDService(hobbyRepo, noteRepo, activityService)
 	in_adapter.NewHobbyMuxAdapter(hobbyService, webAuth, hobbyRouter)
 
 	// site copy (signal flags), singleton
