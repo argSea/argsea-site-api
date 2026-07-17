@@ -8,15 +8,27 @@ import (
 	"github.com/argSea/argsea-site-api/argHex/domain"
 	"github.com/argSea/argsea-site-api/argHex/in_port"
 	"github.com/argSea/argsea-site-api/argHex/out_adapter"
+	"github.com/argSea/argsea-site-api/argHex/out_port"
 	"github.com/argSea/argsea-site-api/argHex/service"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // newHobbies wires a hobby service onto an in-memory fake repo plus the
 // shared activity log, so the real business logic runs end-to-end.
 func newHobbies() in_port.HobbyCRUDService {
-	activity := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())
+	hobbies, _ := newHobbiesWithNotes()
 
-	return service.NewHobbyCRUDService(out_adapter.NewHobbyFakeOutAdapter(), activity)
+	return hobbies
+}
+
+// newHobbiesWithNotes wires a hobby service like newHobbies but hands back
+// the note repo directly too, so a test can seed notes for the tie check
+// without going through a second, unrelated NoteCRUDService.
+func newHobbiesWithNotes() (in_port.HobbyCRUDService, out_port.NoteRepo) {
+	activity := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())
+	notes := out_adapter.NewNoteFakeOutAdapter()
+
+	return service.NewHobbyCRUDService(out_adapter.NewHobbyFakeOutAdapter(), notes, activity), notes
 }
 
 func TestStateAcceptsEachVocabularyValue(t *testing.T) {
@@ -294,6 +306,78 @@ func TestTagsSurviveCreateAndUpdate(t *testing.T) {
 
 	if 1 != len(stored.Tags) || "plex" != stored.Tags[0] {
 		t.Fatalf("tags did not survive the replace write, got %+v", stored.Tags)
+	}
+}
+
+func TestHobbyNoteIdsRejectsUnknownId(t *testing.T) {
+	hobbies, notes := newHobbiesWithNotes()
+
+	noteID, err := notes.Add(domain.Note{Title: "Journal entry"})
+
+	if nil != err {
+		t.Fatalf("seed note failed: %v", err)
+	}
+
+	tied, err := hobbies.Create(domain.Hobby{Name: "Piano", State: domain.StateMoored, NoteIds: []string{noteID}})
+
+	if nil != err {
+		t.Fatalf("expected a known note id accepted, got %v", err)
+	}
+
+	stored := hobbies.Read(tied.Id)
+
+	if 1 != len(stored.NoteIds) || noteID != stored.NoteIds[0] {
+		t.Fatalf("noteIds did not round-trip the create, got %+v", stored.NoteIds)
+	}
+
+	if _, err := hobbies.Create(domain.Hobby{Name: "Untied", State: domain.StateMoored, NoteIds: []string{"nope"}}); nil == err {
+		t.Fatalf("expected an unknown note id rejected")
+	}
+
+	// the update path rejects too, and the stored noteIds survive untouched
+	if _, err := hobbies.Update(domain.Hobby{Id: tied.Id, Name: "Piano", State: domain.StateMoored, NoteIds: []string{"nope"}}); nil == err {
+		t.Fatalf("expected update to reject an unknown note id")
+	}
+
+	stored = hobbies.Read(tied.Id)
+
+	if 1 != len(stored.NoteIds) || noteID != stored.NoteIds[0] {
+		t.Fatalf("rejected update must leave the stored noteIds intact, got %+v", stored.NoteIds)
+	}
+}
+
+func TestHobbyNoteIdsAbsentStaysAbsentOnTheWire(t *testing.T) {
+	hobbies := newHobbies()
+
+	saved, err := hobbies.Create(domain.Hobby{Name: "Kite", State: domain.StateMarooned})
+
+	if nil != err {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	stored := hobbies.Read(saved.Id)
+
+	if 0 != len(stored.NoteIds) {
+		t.Fatalf("expected no noteIds, got %+v", stored.NoteIds)
+	}
+
+	// the json tag round-trips noteIds like every other Hobby field (no
+	// omitempty there, same as Project.NoteIds); the store-side omission is on
+	// the bson tag instead, matching an absent tags
+	doc, err := bson.Marshal(stored)
+
+	if nil != err {
+		t.Fatalf("hobby did not marshal to bson: %v", err)
+	}
+
+	var raw bson.M
+
+	if err := bson.Unmarshal(doc, &raw); nil != err {
+		t.Fatalf("bson did not unmarshal: %v", err)
+	}
+
+	if _, present := raw["noteIds"]; present {
+		t.Fatalf("an absent noteIds must omit the field in the stored document, got %+v", raw)
 	}
 }
 

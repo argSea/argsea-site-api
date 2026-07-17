@@ -33,14 +33,31 @@ func clampBearings(hobby *domain.Hobby) {
 
 type hobbyCRUDService struct {
 	repo     out_port.HobbyRepo
+	notes    out_port.NoteRepo
 	activity in_port.ActivityService
 }
 
-func NewHobbyCRUDService(repo out_port.HobbyRepo, activity in_port.ActivityService) in_port.HobbyCRUDService {
+// NewHobbyCRUDService wires the ship's log onto its repo, a read-only handle
+// to notes for the noteIds existence check, and the shared activity plumbing.
+func NewHobbyCRUDService(repo out_port.HobbyRepo, notes out_port.NoteRepo, activity in_port.ActivityService) in_port.HobbyCRUDService {
 	return hobbyCRUDService{
 		repo:     repo,
+		notes:    notes,
 		activity: activity,
 	}
+}
+
+// validateNoteIds checks every tied id against the notes collection. An
+// unknown id would tie a ship to a journal entry that doesn't exist, so it
+// is rejected rather than silently stored.
+func (h hobbyCRUDService) validateNoteIds(noteIds []string) error {
+	for _, id := range noteIds {
+		if "" == h.notes.Get(id).Id {
+			return errors.New("noteIds must reference an existing note: unknown id " + id)
+		}
+	}
+
+	return nil
 }
 
 func (h hobbyCRUDService) List(activeOnly bool) (domain.Hobbies, error) {
@@ -54,6 +71,10 @@ func (h hobbyCRUDService) Read(id string) domain.Hobby {
 func (h hobbyCRUDService) Create(hobby domain.Hobby) (domain.Hobby, error) {
 	// an invalid state never reaches the store; reject before anything is written
 	if err := validateState(hobby.State); nil != err {
+		return domain.Hobby{}, err
+	}
+
+	if err := h.validateNoteIds(hobby.NoteIds); nil != err {
 		return domain.Hobby{}, err
 	}
 
@@ -115,6 +136,10 @@ func (h hobbyCRUDService) Update(hobby domain.Hobby) (domain.Hobby, error) {
 	}
 
 	if err := validateState(hobby.State); nil != err {
+		return domain.Hobby{}, err
+	}
+
+	if err := h.validateNoteIds(hobby.NoteIds); nil != err {
 		return domain.Hobby{}, err
 	}
 
