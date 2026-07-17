@@ -64,8 +64,8 @@ func TestCarvingListReadIsPublic(t *testing.T) {
 	var carvings []domain.Carving
 	json.Unmarshal(rec.Body.Bytes(), &carvings)
 
-	if 25 != len(carvings) {
-		t.Fatalf("expected all twenty-five seeded carvings, got %d", len(carvings))
+	if 26 != len(carvings) {
+		t.Fatalf("expected all twenty-six seeded carvings, got %d", len(carvings))
 	}
 
 	for _, carving := range carvings {
