@@ -57,9 +57,9 @@ func TestSeedPlantsABuiltinCarvingBoltedOntoEverySpot(t *testing.T) {
 		t.Fatalf("list failed: %v", err)
 	}
 
-	// the seven v1s plus the eighteen promoted builtins, one per spot
-	if 25 != len(all) {
-		t.Fatalf("expected twenty-five seeded carvings, got %d", len(all))
+	// the seven v1s plus the eighteen promoted builtins plus the delivery gull, one per spot
+	if 26 != len(all) {
+		t.Fatalf("expected twenty-six seeded carvings, got %d", len(all))
 	}
 
 	bySpot := carvingBySpot(t, carvings)
@@ -83,7 +83,7 @@ func TestCarvingSeedIsIdempotent(t *testing.T) {
 
 	all, _ := carvings.List()
 
-	if 25 != len(all) {
+	if 26 != len(all) {
 		t.Fatalf("re-seeding grew the bench to %d carvings", len(all))
 	}
 }
@@ -106,8 +106,8 @@ func TestCarvingSeedLandsMissingBuiltinsOnAPopulatedBench(t *testing.T) {
 
 	all, _ := carvings.List()
 
-	if 26 != len(all) {
-		t.Fatalf("expected the draft plus twenty-five seeds, got %d carvings", len(all))
+	if 27 != len(all) {
+		t.Fatalf("expected the draft plus twenty-six seeds, got %d carvings", len(all))
 	}
 
 	for _, carving := range all {
@@ -133,12 +133,39 @@ func TestCarvingSeedSkipsARecordAlreadyPresentByName(t *testing.T) {
 
 	all, _ := carvings.List()
 
-	if 25 != len(all) {
+	if 26 != len(all) {
 		t.Fatalf("expected the name-claimed seed to be skipped, got %d carvings", len(all))
 	}
 
 	for _, carving := range all {
 		if "The gull" == carving.Name && (carving.Builtin || "<svg>keeper's gull</svg>" != carving.Svg) {
+			t.Fatalf("the seed overwrote the name-claimed record: %+v", carving)
+		}
+	}
+}
+
+func TestCarvingSeedSkipsTheDeliveryGullAlreadyPresentByName(t *testing.T) {
+	activity := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())
+	carvings := service.NewCarvingService(out_adapter.NewCarvingFakeOutAdapter(), activity)
+
+	// same per-record gate as the other builtins: a record wearing "The
+	// delivery gull" claims that seed's slot, so only the other builtins land
+	if _, err := carvings.Create(domain.Carving{Name: "The delivery gull", Svg: "<svg>keeper's gull</svg>"}); nil != err {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	if err := carvings.Seed(); nil != err {
+		t.Fatalf("seed failed: %v", err)
+	}
+
+	all, _ := carvings.List()
+
+	if 26 != len(all) {
+		t.Fatalf("expected the name-claimed seed to be skipped, got %d carvings", len(all))
+	}
+
+	for _, carving := range all {
+		if "The delivery gull" == carving.Name && (carving.Builtin || "<svg>keeper's gull</svg>" != carving.Svg) {
 			t.Fatalf("the seed overwrote the name-claimed record: %+v", carving)
 		}
 	}

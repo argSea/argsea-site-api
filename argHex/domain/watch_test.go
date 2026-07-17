@@ -22,7 +22,7 @@ func TestAClearedWatchRoundTrips(t *testing.T) {
 	if err := bson.Unmarshal(raw, &doc); nil != err {
 		t.Fatalf("unmarshal to doc failed: %v", err)
 	}
-	for _, key := range []string{"letter", "rotation", "bearings", "postcardMediaId", "quips"} {
+	for _, key := range []string{"letter", "rotation", "bearings", "postcardMediaId", "postcard2MediaId", "quips"} {
 		if _, present := doc[key]; present {
 			t.Fatalf("a cleared watch grew a %q block it never had: %v", key, doc)
 		}

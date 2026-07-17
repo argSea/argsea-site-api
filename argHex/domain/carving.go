@@ -6,10 +6,11 @@ type Carvings []Carving
 // the doodles (marginalia sketches never take a carving) and the catalog-only
 // entries that live admin-side as display notes (the postage stamp, the
 // wreck, the harbor cat itself). The first seven are the original v1 spots;
-// the rest are the 2026-07-16 promote wave, static art lifted off the built
-// pages. The Flannan memorial lights and the computed chart line-work stay
-// catalog notes on purpose. The set is frozen; a new spot needs its own
-// change, not a config toggle.
+// the next eighteen are the 2026-07-16 promote wave, static art lifted off
+// the built pages; the last is the 2026-07-17 gazette masthead. The Flannan
+// memorial lights and the computed chart line-work stay catalog notes on
+// purpose. The set is frozen; a new spot needs its own change, not a config
+// toggle.
 const (
 	SpotLighthouseLogo = "lighthouse-logo"
 	SpotBoat           = "boat"
@@ -37,6 +38,8 @@ const (
 	SpotBuoy            = "buoy"
 	SpotCompass         = "compass"
 	SpotNotesLetter     = "notes-letter"
+
+	SpotDeliveryGull = "delivery-gull"
 )
 
 // CarvingSpots is the closed spot vocabulary: bolting anywhere outside it
@@ -68,6 +71,8 @@ var CarvingSpots = map[string]bool{
 	SpotBuoy:            true,
 	SpotCompass:         true,
 	SpotNotesLetter:     true,
+
+	SpotDeliveryGull: true,
 }
 
 // Carving is one raw-svg block cut at the bench, bolted onto zero or more

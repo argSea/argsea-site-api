@@ -4,13 +4,18 @@ import "github.com/argSea/argsea-site-api/argHex/domain"
 
 // seedCarvings is the shipped builtin carvings, one per spot. The first seven
 // are the v1s, transcribed byte-for-byte from the design mock's svgCatalog
-// (design/Admin.dc.html in argsea-site; the mock is design canon). The rest
-// are the 2026-07-16 promote wave, byte-identical to argsea-site's fixture
-// records (src/data/fixtures/carvings.json, the wave's canonical strings,
-// themselves lifted from main's built markup and wrapped as standalone svgs
-// with each mount's viewBox). Each seed is pre-bolted to its own spot: the
-// current look on the site IS the builtin bolt, so "go back to the builtin"
-// for a spot means re-bolting its seed. Animations never ride a carving: the
+// (design/Admin.dc.html in argsea-site; the mock is design canon). The next
+// eighteen are the 2026-07-16 promote wave, byte-identical to argsea-site's
+// fixture records (src/data/fixtures/carvings.json, the wave's canonical
+// strings, themselves lifted from main's built markup and wrapped as
+// standalone svgs with each mount's viewBox). The last is the 2026-07-17
+// delivery gull, the Gull Post masthead vector from the design mock
+// (design/Hello Gazette.dc.html in argsea-site) with the mock's placement
+// chrome (title, absolute-position style) stripped, the same bytes as
+// argsea-site's fixture-carving-delivery-gull. Each seed is pre-bolted to
+// its own spot: the current look on the site IS the builtin bolt, so "go
+// back to the builtin" for a spot means re-bolting its seed. Animations
+// never ride a carving: the
 // records carry static geometry plus a data-carving-anchor tag on every
 // element whose page animation should survive a re-bolt (the lamp pattern,
 // plus the adrift wake's own anchor); the two tab-bar seeds keep currentColor
@@ -141,6 +146,11 @@ func seedCarvings() []domain.Carving {
 			Name:     "The notes letter",
 			Svg:      `<svg width="19" height="22" viewBox="0 0 20 22" fill="none"><rect x="4" y="3" width="12" height="16" rx="1.5" stroke="currentColor" stroke-width="1.5"></rect><path d="M7 7 h6 M7 10 h6 M7 13 h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"></path></svg>`,
 			BoltedTo: []string{domain.SpotNotesLetter},
+		},
+		{
+			Name:     "The delivery gull",
+			Svg:      `<svg width="46" height="44" viewBox="0 0 46 44" fill="none" stroke="rgba(32,35,60,.85)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 41 v-5 M20 41 v-5" stroke-width="1.4"></path><path d="M11 36 C8 30 9 23 15 20 C22 16.5 30 19 31 26 C31.8 32 27 36 20 36 Z" fill="#f1ecdd"></path><path d="M17 24 C22 21 28 23 29 28 C26 30 19 30 16 27 Z" fill="rgba(32,35,60,.18)" stroke="none"></path><path d="M15 20 C14 14 18 10 23 10 C27 10 30 13 30 17" fill="#f1ecdd"></path><path d="M30 16.5 L36 18 L30 19.5" fill="#c9a96a" stroke="rgba(32,35,60,.85)"></path><circle cx="25.5" cy="15" r="1.1" fill="rgba(32,35,60,.85)" stroke="none"></circle><path d="M16.5 11.5 C17 7.5 21 5.5 25 6.5 C28 7.2 29.5 9.5 29.5 11.5 L31.5 11.5 C32.2 11.5 32.2 12.8 31.5 12.8 L18 12.8 Z" fill="rgba(32,35,60,.75)" stroke="none"></path></svg>`,
+			BoltedTo: []string{domain.SpotDeliveryGull},
 		},
 	}
 }
