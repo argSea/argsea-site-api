@@ -5,13 +5,14 @@ package domain
 // empty Letter is the cleared state (the site collapses the section), so
 // clearing is just an authed write of an empty record; there is no delete.
 type Watch struct {
-	Id              string         `json:"id" bson:"_id,omitempty"`
-	Letter          string         `json:"letter" bson:"letter,omitempty"`                   // hand-written; a blank line splits paragraphs
-	Rotation        string         `json:"rotation" bson:"rotation,omitempty"`               // the not-doing line ("out of the rotation")
-	Bearings        []WatchBearing `json:"bearings" bson:"bearings,omitempty"`               // the TL;DR strip; the service truncates past three
-	PostcardMediaId string         `json:"postcardMediaId" bson:"postcardMediaId,omitempty"` // darkroom print id; "" means no postcard
-	Quips           []string       `json:"quips" bson:"quips,omitempty"`                     // the cat's remarks on the watch panel
-	KeptAt          string         `json:"keptAt" bson:"keptAt,omitempty"`                   // stamped server-side on save; a client-sent value is ignored
+	Id               string         `json:"id" bson:"_id,omitempty"`
+	Letter           string         `json:"letter" bson:"letter,omitempty"`                     // hand-written; a blank line splits paragraphs
+	Rotation         string         `json:"rotation" bson:"rotation,omitempty"`                 // the not-doing line ("out of the rotation")
+	Bearings         []WatchBearing `json:"bearings" bson:"bearings,omitempty"`                 // the TL;DR strip; the service truncates past three
+	PostcardMediaId  string         `json:"postcardMediaId" bson:"postcardMediaId,omitempty"`   // darkroom print id; "" means no postcard
+	Postcard2MediaId string         `json:"postcard2MediaId" bson:"postcard2MediaId,omitempty"` // darkroom print id; "" means the second hook is bare
+	Quips            []string       `json:"quips" bson:"quips,omitempty"`                       // the cat's remarks on the watch panel
+	KeptAt           string         `json:"keptAt" bson:"keptAt,omitempty"`                     // stamped server-side on save; a client-sent value is ignored
 }
 
 // WatchBearing is one line on the bearings strip: a verb and what it points at.

@@ -96,7 +96,7 @@ func TestSaveTruncatesTheBearingsPastThree(t *testing.T) {
 func TestAClearedWatchIsAValidSave(t *testing.T) {
 	watch, _ := newWatch(t)
 
-	if _, err := watch.Save(domain.Watch{Letter: "Off on the mail boat.", PostcardMediaId: "print-7"}); nil != err {
+	if _, err := watch.Save(domain.Watch{Letter: "Off on the mail boat.", PostcardMediaId: "print-7", Postcard2MediaId: "print-8"}); nil != err {
 		t.Fatalf("seed save failed: %v", err)
 	}
 
@@ -109,12 +109,56 @@ func TestAClearedWatchIsAValidSave(t *testing.T) {
 
 	kept := watch.Get()
 
-	if "" != kept.Letter || "" != kept.PostcardMediaId {
+	if "" != kept.Letter || "" != kept.PostcardMediaId || "" != kept.Postcard2MediaId {
 		t.Fatalf("the cleared watch still carries the old record: %+v", kept)
 	}
 
 	if "" == cleared.KeptAt {
 		t.Fatalf("even a cleared watch is stamped: %+v", cleared)
+	}
+}
+
+func TestSaveRoundTripsPostcard2MediaId(t *testing.T) {
+	watch, _ := newWatch(t)
+
+	saved, err := watch.Save(domain.Watch{Letter: "Off on the mail boat.", Postcard2MediaId: "print-8"})
+
+	if nil != err {
+		t.Fatalf("save failed: %v", err)
+	}
+
+	if "print-8" != saved.Postcard2MediaId {
+		t.Fatalf("expected postcard2MediaId to round-trip through save, got %q", saved.Postcard2MediaId)
+	}
+
+	kept := watch.Get()
+
+	if "print-8" != kept.Postcard2MediaId {
+		t.Fatalf("expected postcard2MediaId to round-trip through get, got %q", kept.Postcard2MediaId)
+	}
+}
+
+func TestSaveRoundTripsAnEmptyPostcard2MediaId(t *testing.T) {
+	watch, _ := newWatch(t)
+
+	if _, err := watch.Save(domain.Watch{Letter: "Off on the mail boat.", Postcard2MediaId: "print-8"}); nil != err {
+		t.Fatalf("seed save failed: %v", err)
+	}
+
+	saved, err := watch.Save(domain.Watch{Letter: "Back at the light."})
+
+	if nil != err {
+		t.Fatalf("save failed: %v", err)
+	}
+
+	if "" != saved.Postcard2MediaId {
+		t.Fatalf("expected the second hook to come back bare, got %q", saved.Postcard2MediaId)
+	}
+
+	kept := watch.Get()
+
+	if "" != kept.Postcard2MediaId {
+		t.Fatalf("expected the second hook to stay bare through get, got %q", kept.Postcard2MediaId)
 	}
 }
 
