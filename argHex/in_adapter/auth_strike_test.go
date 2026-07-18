@@ -101,11 +101,11 @@ func TestAdriftRedirectsToItself(t *testing.T) {
 	}
 }
 
-func TestStruckConsoleHailShowsTheKeeperLine(t *testing.T) {
+func TestBarredConsoleHailShowsTheKeeperLine(t *testing.T) {
 	_, router := newLoginRouter(t, in_port.PERM_ADMIN)
 	ip := "203.0.113.50"
 
-	// six bad hails from one IP strike the light; the sixth already reads struck
+	// six bad hails from one IP bar the door; the sixth already reads barred
 	var last *httptest.ResponseRecorder
 
 	for miss := 1; miss <= 6; miss++ {
@@ -113,17 +113,17 @@ func TestStruckConsoleHailShowsTheKeeperLine(t *testing.T) {
 	}
 
 	if http.StatusBadRequest != last.Code {
-		t.Fatalf("a struck console hail stays a 400, got %d", last.Code)
+		t.Fatalf("a barred console hail stays a 400, got %d", last.Code)
 	}
 
-	if in_port.ErrLoginStruck.Error() != errorMessage(t, last) {
-		t.Fatalf("a struck console hail must show the keeper struck line, got %q", errorMessage(t, last))
+	if in_port.ErrLoginBarred.Error() != errorMessage(t, last) {
+		t.Fatalf("a barred console hail must show the keeper barred line, got %q", errorMessage(t, last))
 	}
 
-	// even the correct password is refused while struck, still a 400 to the console
-	struck := postLogin(t, router, `{"userName":"meo","password":"passphrase"}`, ip, true)
+	// even the correct password is refused while barred, still a 400 to the console
+	barred := postLogin(t, router, `{"userName":"meo","password":"passphrase"}`, ip, true)
 
-	if http.StatusBadRequest != struck.Code || in_port.ErrLoginStruck.Error() != errorMessage(t, struck) {
-		t.Fatalf("a struck IP must refuse even the right password with the struck line, got %d %q", struck.Code, errorMessage(t, struck))
+	if http.StatusBadRequest != barred.Code || in_port.ErrLoginBarred.Error() != errorMessage(t, barred) {
+		t.Fatalf("a barred IP must refuse even the right password with the barred line, got %d %q", barred.Code, errorMessage(t, barred))
 	}
 }

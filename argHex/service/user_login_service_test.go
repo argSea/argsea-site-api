@@ -15,7 +15,7 @@ import (
 const keeperPassword = "passphrase"
 
 // spyUserRepo is a single-user UserRepo that answers only for the stored
-// username and counts its lookups, so a test can prove a struck hail never
+// username and counts its lookups, so a test can prove a barred hail never
 // reaches the user store (and so never runs bcrypt).
 type spyUserRepo struct {
 	stored  domain.User
@@ -82,30 +82,30 @@ func hail(svc in_port.UserLoginService, ip string, password string) (domain.User
 	return svc.Login(domain.User{UserName: "meo", Password: domain.Password(password)}, ip)
 }
 
-func TestStrikeAfterSixMisses(t *testing.T) {
+func TestBarAfterSixMisses(t *testing.T) {
 	svc, _, locks := newLoginService(t)
 	ip := "203.0.113.10"
 
 	for miss := 1; miss <= 5; miss++ {
 		if _, err := hail(svc, ip, "wrong"); !errors.Is(err, in_port.ErrBadCredentials) {
-			t.Fatalf("miss %d should read as bad credentials, not a strike, got %v", miss, err)
+			t.Fatalf("miss %d should read as bad credentials, not a bar, got %v", miss, err)
 		}
 
-		if locks.GetByIP(ip).IsStruck() {
-			t.Fatalf("the light must not strike before the sixth miss, struck at %d", miss)
+		if locks.GetByIP(ip).IsBarred() {
+			t.Fatalf("the door must not bar before the sixth miss, barred at %d", miss)
 		}
 	}
 
-	if _, err := hail(svc, ip, "wrong"); !errors.Is(err, in_port.ErrLoginStruck) {
-		t.Fatalf("the sixth miss must strike the light, got %v", err)
+	if _, err := hail(svc, ip, "wrong"); !errors.Is(err, in_port.ErrLoginBarred) {
+		t.Fatalf("the sixth miss must bar the door, got %v", err)
 	}
 
-	if !locks.GetByIP(ip).IsStruck() {
-		t.Fatalf("the IP must be struck after its sixth miss")
+	if !locks.GetByIP(ip).IsBarred() {
+		t.Fatalf("the IP must be barred after its sixth miss")
 	}
 }
 
-func TestStruckShortCircuitsBeforeBcrypt(t *testing.T) {
+func TestBarredShortCircuitsBeforeBcrypt(t *testing.T) {
 	svc, repo, _ := newLoginService(t)
 	ip := "203.0.113.10"
 
@@ -113,36 +113,36 @@ func TestStruckShortCircuitsBeforeBcrypt(t *testing.T) {
 		hail(svc, ip, "wrong")
 	}
 
-	lookupsBeforeStruckHail := repo.lookups
+	lookupsBeforeBarredHail := repo.lookups
 
-	// the correct password must still be refused while the IP is struck
-	if _, err := hail(svc, ip, keeperPassword); !errors.Is(err, in_port.ErrLoginStruck) {
-		t.Fatalf("a struck IP must refuse even the correct password, got %v", err)
+	// the correct password must still be refused while the IP is barred
+	if _, err := hail(svc, ip, keeperPassword); !errors.Is(err, in_port.ErrLoginBarred) {
+		t.Fatalf("a barred IP must refuse even the correct password, got %v", err)
 	}
 
-	if repo.lookups != lookupsBeforeStruckHail {
-		t.Fatalf("a struck hail must short-circuit before the user lookup and bcrypt, but the store was read")
+	if repo.lookups != lookupsBeforeBarredHail {
+		t.Fatalf("a barred hail must short-circuit before the user lookup and bcrypt, but the store was read")
 	}
 }
 
-func TestSecondIPUnaffectedByAnotherStrike(t *testing.T) {
+func TestSecondIPUnaffectedByAnotherBar(t *testing.T) {
 	svc, _, _ := newLoginService(t)
-	struckIP := "203.0.113.10"
+	barredIP := "203.0.113.10"
 	freshIP := "203.0.113.20"
 
 	for miss := 1; miss <= 6; miss++ {
-		hail(svc, struckIP, "wrong")
+		hail(svc, barredIP, "wrong")
 	}
 
-	if _, err := hail(svc, struckIP, keeperPassword); !errors.Is(err, in_port.ErrLoginStruck) {
-		t.Fatalf("the struck IP should stay struck, got %v", err)
+	if _, err := hail(svc, barredIP, keeperPassword); !errors.Is(err, in_port.ErrLoginBarred) {
+		t.Fatalf("the barred IP should stay barred, got %v", err)
 	}
 
 	// the whole point of per-IP: one client's misses never lock another
 	user, err := hail(svc, freshIP, keeperPassword)
 
 	if nil != err {
-		t.Fatalf("a second IP must be unaffected by another IP's strike, got %v", err)
+		t.Fatalf("a second IP must be unaffected by another IP's bar, got %v", err)
 	}
 
 	if "keeper" != user.Id {
@@ -163,7 +163,7 @@ func TestGoodHailClearsTheCounter(t *testing.T) {
 	}
 
 	if _, err := hail(svc, ip, keeperPassword); nil != err {
-		t.Fatalf("a good hail below the strike must log in, got %v", err)
+		t.Fatalf("a good hail below the bar must log in, got %v", err)
 	}
 
 	if 0 != locks.GetByIP(ip).Misses {

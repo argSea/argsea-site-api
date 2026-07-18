@@ -172,7 +172,7 @@ func (a authMuxAdapter) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 // refuseHail answers a failed login. The console marks its request, so its SPA
-// gets the 400 JSON it reads to launch the flood (the struck line when struck,
+// gets the 400 JSON it reads to launch the flood (the barred line when barred,
 // the generic credentials line otherwise, same status either way). A direct hail
 // carries no marker and gets no answer worth reading: a 302 into a drift that
 // loops back on itself forever.
