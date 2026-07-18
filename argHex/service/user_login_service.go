@@ -29,17 +29,17 @@ func NewUserLoginService(repo out_port.UserRepo, lockRead out_port.LoginLockRead
 	}
 }
 
-// Login authenticates a hail from client ip. A struck IP is refused before any
+// Login authenticates a hail from client ip. A barred IP is refused before any
 // user lookup or bcrypt, so a hammerer cannot probe and cannot cost the light
-// work. A bad hail records a miss against that IP and strikes it on the sixth; a
+// work. A bad hail records a miss against that IP and bars it on the sixth; a
 // good hail wipes that IP's slate. The error is typed so the adapter can tell a
-// struck refusal from bad credentials.
+// barred refusal from bad credentials.
 func (u userLoginService) Login(user domain.User, ip string) (domain.User, error) {
 	lock := u.lockRead.GetByIP(ip)
 
-	if lock.IsStruck() {
-		log.Printf("Login refused: %s is struck", ip)
-		return domain.User{}, in_port.ErrLoginStruck
+	if lock.IsBarred() {
+		log.Printf("Login refused: %s is barred", ip)
+		return domain.User{}, in_port.ErrLoginBarred
 	}
 
 	logged_in_user := u.repo.GetByUserName(user.UserName)
@@ -60,7 +60,7 @@ func (u userLoginService) Login(user domain.User, ip string) (domain.User, error
 	// match the dummy hash: with no credential on file the hail is always refused
 	if !present || nil != compare_err {
 		log.Printf("User not logged in from %s", ip)
-		return domain.User{}, u.strike(ip, lock)
+		return domain.User{}, u.bar(ip, lock)
 	}
 
 	// a good hail wipes this client's slate; only bother when it had misses
@@ -74,19 +74,19 @@ func (u userLoginService) Login(user domain.User, ip string) (domain.User, error
 	return logged_in_user, nil
 }
 
-// strike records one more bad hail from ip and returns the refusal to show. The
-// sixth miss strikes the light for that IP; a strike write that fails is logged,
+// bar records one more bad hail from ip and returns the refusal to show. The
+// sixth miss bars the door for that IP; a bar write that fails is logged,
 // not surfaced, since the refusal still stands.
-func (u userLoginService) strike(ip string, lock domain.LoginLock) error {
+func (u userLoginService) bar(ip string, lock domain.LoginLock) error {
 	lock.IP = ip
-	struck := lock.Missed()
+	barred := lock.Missed()
 
-	if err := u.lockWrite.Save(struck); nil != err {
+	if err := u.lockWrite.Save(barred); nil != err {
 		log.Printf("could not record login miss for %s: %v", ip, err)
 	}
 
-	if struck.IsStruck() {
-		return in_port.ErrLoginStruck
+	if barred.IsBarred() {
+		return in_port.ErrLoginBarred
 	}
 
 	return in_port.ErrBadCredentials

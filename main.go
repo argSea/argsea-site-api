@@ -354,7 +354,7 @@ func main() {
 	in_adapter.NewUserMuxAdapter(userService, mediaService, webAuth, userRouter)
 
 	// auth: kept; sessions are issued through the same shared WebAuth store. The
-	// login strike ledger locks a client IP after its sixth bad hail; the only
+	// login lockout ledger locks a client IP after its sixth bad hail; the only
 	// reset is deleting its doc. A unique index on ip keeps one doc per client.
 	log.Println("Initializing auth")
 	loginLockMordor := stores.NewMordor(mongo_db.DB.Collection(loginLockTable), context.Background())

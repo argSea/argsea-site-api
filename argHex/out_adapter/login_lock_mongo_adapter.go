@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// loginLockMongoAdapter is the login strike ledger in mongo: one doc per client
+// loginLockMongoAdapter is the login lockout ledger in mongo: one doc per client
 // IP. It satisfies both the read and the write port; main.go hands the same
 // value to each seam.
 type loginLockMongoAdapter struct {
@@ -22,7 +22,7 @@ func NewLoginLockMongoAdapter(store *stores.Mordor) loginLockMongoAdapter {
 }
 
 // GetByIP reads a client's standing, or a zero lock carrying the IP when none is
-// on file: an IP that has never missed reads as no misses and unstruck.
+// on file: an IP that has never missed reads as no misses and unbarred.
 func (l loginLockMongoAdapter) GetByIP(ip string) domain.LoginLock {
 	var lock domain.LoginLock
 	err := l.store.Get("ip", ip, &lock)
@@ -39,7 +39,7 @@ func (l loginLockMongoAdapter) GetByIP(ip string) domain.LoginLock {
 // $set; the IP rides the filter onto the inserted doc.
 func (l loginLockMongoAdapter) Save(lock domain.LoginLock) error {
 	filter := bson.M{"ip": lock.IP}
-	update := bson.D{{Key: "$set", Value: bson.M{"misses": lock.Misses, "struck": lock.Struck}}}
+	update := bson.D{{Key: "$set", Value: bson.M{"misses": lock.Misses, "barred": lock.Barred}}}
 
 	return l.store.Upsert(filter, update)
 }
