@@ -71,9 +71,10 @@ func (s sightingService) Record(beacon domain.SightingBeacon, ip string, userAge
 }
 
 // Traffic folds the window of sightings into the watch room's read: totals of
-// sails, bottles, and flares, a zero-filled per-day series, the busiest weekday,
-// the top flipped postcard, read note, and visited hobby, the port shares, and
-// the per-ship flare roll call.
+// sails and bottles, a zero-filled per-day series, the busiest weekday, the top
+// flipped postcard, read note, and visited hobby, the port shares, and the
+// per-ship flare roll call. The roll call and its total ride every flare ever
+// sent, not just the window, so the flare tally is a second, unfiltered read.
 func (s sightingService) Traffic(days int) (domain.TrafficReport, error) {
 	days = clampDays(days)
 	now := time.Now().UTC()
@@ -85,13 +86,21 @@ func (s sightingService) Traffic(days int) (domain.TrafficReport, error) {
 		return domain.TrafficReport{}, err
 	}
 
-	return foldTraffic(window, now, days), nil
+	flares, err := s.repo.Flares()
+
+	if nil != err {
+		return domain.TrafficReport{}, err
+	}
+
+	return foldTraffic(window, flares, now, days), nil
 }
 
-// foldTraffic is the whole aggregate in one pass over the window, so it stays a
-// pure function of the rows and the clock: easy to read, easy to test. Flares
-// are the one tally counted by distinct visitor per ship, not by raw ping.
-func foldTraffic(window domain.Sightings, now time.Time, days int) domain.TrafficReport {
+// foldTraffic is the whole aggregate in one pass over the window plus one pass
+// over the all-time flares, so it stays a pure function of the rows and the
+// clock: easy to read, easy to test. Flares are the one tally counted by
+// distinct visitor per ship, not by raw ping, and the one tally that never
+// ages out of the window.
+func foldTraffic(window domain.Sightings, flares domain.Sightings, now time.Time, days int) domain.TrafficReport {
 	order := make([]string, 0, days)
 	daySails := map[string]int{}
 	dayVisitors := map[string]map[string]bool{}
@@ -108,9 +117,6 @@ func foldTraffic(window domain.Sightings, now time.Time, days int) domain.Traffi
 	flipCounts := map[string]int{}
 	readCounts := map[string]int{}
 	visitCounts := map[string]int{}
-	// flares count distinct visitors per ship, not raw pings, so the roll call
-	// holds a visitor set per subject rather than a plain counter
-	flareVisitors := map[string]map[string]bool{}
 	totalSails := 0
 	totalBottles := 0
 
@@ -139,14 +145,21 @@ func foldTraffic(window domain.Sightings, now time.Time, days int) domain.Traffi
 			}
 		case domain.SightingBottle:
 			totalBottles++
-		case domain.SightingFlare:
-			if "" != sighting.Subject {
-				if nil == flareVisitors[sighting.Subject] {
-					flareVisitors[sighting.Subject] = map[string]bool{}
-				}
+		}
+	}
 
-				flareVisitors[sighting.Subject][sighting.Visitor] = true
+	// flares count distinct visitors per ship, not raw pings, so the roll call
+	// holds a visitor set per subject rather than a plain counter. It rides the
+	// all-time flares passed in, not the window, so the tally never ages out.
+	flareVisitors := map[string]map[string]bool{}
+
+	for _, sighting := range flares {
+		if "" != sighting.Subject {
+			if nil == flareVisitors[sighting.Subject] {
+				flareVisitors[sighting.Subject] = map[string]bool{}
 			}
+
+			flareVisitors[sighting.Subject][sighting.Visitor] = true
 		}
 	}
 

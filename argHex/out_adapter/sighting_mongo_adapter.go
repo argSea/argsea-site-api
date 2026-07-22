@@ -42,6 +42,17 @@ func (s sightingMongoAdapter) Window(since string) (domain.Sightings, error) {
 	return sightings, err
 }
 
+// Flares returns every flare sighting ever recorded, oldest first, with no day
+// filter: the roll call counts forever, so it never rides the window.
+func (s sightingMongoAdapter) Flares() (domain.Sightings, error) {
+	var sightings domain.Sightings
+	filter := bson.M{"kind": domain.SightingFlare}
+	sort := bson.D{{Key: "day", Value: 1}}
+	_, err := s.store.Find(filter, 0, 0, sort, &sightings)
+
+	return sightings, err
+}
+
 // EnsureIndexes lands the TTL on at plus a day+kind index the window read and
 // its groupings ride. Called once at boot; mongo ignores any that already
 // exist.

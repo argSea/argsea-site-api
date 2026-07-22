@@ -380,6 +380,42 @@ func TestTrafficFlareRollCountsDistinctVisitors(t *testing.T) {
 	}
 }
 
+func TestTrafficFlaresCountForeverPastTheWindow(t *testing.T) {
+	svc, repo := newSightings(t)
+	today := time.Now().UTC()
+	day := func(k int) string { return today.AddDate(0, 0, -k).Format("2006-01-02") }
+
+	// thirty days back, well outside a seven-day window: a flare and a sail
+	addFlare(t, repo, day(30), "piano", "fv1")
+	addSail(t, repo, day(30), "v1", domain.PortDirect)
+	// today: a second, distinct flare visitor for the same ship
+	addFlare(t, repo, day(0), "piano", "fv2")
+
+	report, err := svc.Traffic(7)
+
+	if nil != err {
+		t.Fatalf("traffic read failed: %v", err)
+	}
+
+	if 2 != report.Flares {
+		t.Fatalf("expected the old flare to still count toward the all-time total, got %d", report.Flares)
+	}
+
+	if 1 != len(report.FlareRolls) || "piano" != report.FlareRolls[0].Subject || 2 != report.FlareRolls[0].Flares {
+		t.Fatalf("expected piano's roll call to carry both the old and new flare, got %+v", report.FlareRolls)
+	}
+
+	if 0 != report.Sails || 0 != report.Uniques {
+		t.Fatalf("a sail outside the window must stay excluded, got sails %d uniques %d", report.Sails, report.Uniques)
+	}
+
+	for _, d := range report.Days {
+		if 0 != d.Sails || 0 != d.Uniques {
+			t.Fatalf("the windowed day series must not carry the old sail, got %+v", d)
+		}
+	}
+}
+
 func TestTrafficFlareRollsAreEmptyWithoutFlares(t *testing.T) {
 	svc, repo := newSightings(t)
 	today := time.Now().UTC()
