@@ -113,26 +113,44 @@ func (s sightingMongoAdapter) backfillDrawer() error {
 	}
 
 	for _, flare := range stray {
-		id, idErr := primitive.ObjectIDFromHex(flare.Id)
+		upsertFilter, update, ok := backfillUpsert(flare)
 
-		if nil != idErr {
+		if !ok {
 			continue
 		}
 
-		update := bson.D{{Key: "$set", Value: bson.M{
-			"kind":    flare.Kind,
-			"day":     flare.Day,
-			"path":    flare.Path,
-			"subject": flare.Subject,
-			"port":    flare.Port,
-			"visitor": flare.Visitor,
-			"at":      flare.At,
-		}}}
-
-		if err := s.drawer.Upsert(bson.M{"_id": id}, update); nil != err {
+		if err := s.drawer.Upsert(upsertFilter, update); nil != err {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// backfillUpsert maps one stray flare row to the filter+update its upsert
+// into the drawer rides, keyed on the row's own id so a repeat boot lands the
+// same doc rather than a duplicate. ok is false when the row's id does not
+// parse as an ObjectID, the guard backfillDrawer skips the row on. Kept as its
+// own function since it is the one pure part of the migration, and the one a
+// mistake in would fail silently: a wrong filter finds nothing to update,
+// upserts a stray doc instead, and either way returns a nil error.
+func backfillUpsert(flare domain.Sighting) (bson.M, bson.D, bool) {
+	id, idErr := primitive.ObjectIDFromHex(flare.Id)
+
+	if nil != idErr {
+		return nil, nil, false
+	}
+
+	filter := bson.M{"_id": id}
+	update := bson.D{{Key: "$set", Value: bson.M{
+		"kind":    flare.Kind,
+		"day":     flare.Day,
+		"path":    flare.Path,
+		"subject": flare.Subject,
+		"port":    flare.Port,
+		"visitor": flare.Visitor,
+		"at":      flare.At,
+	}}}
+
+	return filter, update, true
 }
