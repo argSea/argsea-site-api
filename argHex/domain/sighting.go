@@ -177,8 +177,9 @@ func refHost(ref string) string {
 // a zero-filled per-day series, the busiest weekday, the top flipped postcard,
 // read note, and visited hobby, the port shares, and the flare roll call.
 // Uniques and sails stay sail-only; bottles is the raw count of proverb bottles
-// served; flares is the total across every ship in the roll call. It carries ids
-// only; the admin resolves them to titles from its own store.
+// served; flares is the total across every ship in the roll call, all-time,
+// never windowed. It carries ids only; the admin resolves them to titles from
+// its own store.
 type TrafficReport struct {
 	Uniques     int           `json:"uniques"`
 	Sails       int           `json:"sails"`
@@ -215,7 +216,7 @@ type TopHobby struct {
 }
 
 // FlareRoll is one ship's tally in the roll call: how many distinct visitors
-// sent up a flare for it in the window. Subject is the hobby id.
+// have ever sent up a flare for it, all-time. Subject is the hobby id.
 type FlareRoll struct {
 	Subject string `json:"subject"`
 	Flares  int    `json:"flares"`

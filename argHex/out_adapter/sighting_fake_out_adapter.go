@@ -40,6 +40,18 @@ func (s sightingFakeOutAdapter) Window(since string) (domain.Sightings, error) {
 	return out, nil
 }
 
+func (s sightingFakeOutAdapter) Flares() (domain.Sightings, error) {
+	var out domain.Sightings
+
+	for _, sighting := range *s.sightings {
+		if domain.SightingFlare == sighting.Kind {
+			out = append(out, sighting)
+		}
+	}
+
+	return out, nil
+}
+
 func (s sightingFakeOutAdapter) EnsureIndexes() error {
 	return nil
 }
