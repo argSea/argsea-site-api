@@ -139,6 +139,7 @@ func main() {
 	doodleTable := "doodles"
 	carvingTable := "carvings"
 	sightingTable := "sightings"
+	flareTable := "flares"
 	loginLockTable := "login_locks"
 
 	// routers
@@ -335,11 +336,14 @@ func main() {
 	}
 
 	sightingMordor := stores.NewMordor(mongo_db.DB.Collection(sightingTable), context.Background())
-	sightingRepo := out_adapter.NewSightingMongoAdapter(sightingMordor)
+	// flares live in their own collection with no TTL, so a flare outlives the
+	// sightings TTL and the roll call never ages one out
+	flareMordor := stores.NewMordor(mongo_db.DB.Collection(flareTable), context.Background())
+	sightingRepo := out_adapter.NewSightingMongoAdapter(sightingMordor, flareMordor)
 
 	if err := sightingRepo.EnsureIndexes(); nil != err {
-		// the endpoints work without the indexes; the TTL and the window read
-		// just run unindexed until a boot lands them
+		// the endpoints work without the indexes; the TTL, the drawer index, and
+		// the window read just run unindexed until a boot lands them
 		log.Printf("sighting index setup failed: %v\n", err)
 	}
 
