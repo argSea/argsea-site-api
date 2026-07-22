@@ -64,6 +64,43 @@ type ProjectFact struct {
 	Fact    string `json:"fact" bson:"fact"`
 }
 
+// ProjectGazette dresses a light's case study in dead-tree copy: a headline,
+// deck, dateline, up to two lead paragraphs, and a photo caption. Every key
+// is optional and only the non-empty ones are stored; a fully empty gazette
+// is dropped rather than kept as a bare {} (see GazetteEmpty).
+type ProjectGazette struct {
+	Headline string `json:"headline,omitempty" bson:"headline,omitempty"`
+	Deck     string `json:"deck,omitempty" bson:"deck,omitempty"`
+	Dateline string `json:"dateline,omitempty" bson:"dateline,omitempty"`
+	P1       string `json:"p1,omitempty" bson:"p1,omitempty"`
+	P2       string `json:"p2,omitempty" bson:"p2,omitempty"`
+	Caption  string `json:"caption,omitempty" bson:"caption,omitempty"`
+}
+
+// GazetteEmpty reports whether every key of a gazette is blank, the same way
+// ValidHobbyState gates a hobby's state: a pure predicate the service layer
+// calls before deciding whether the block is worth storing at all.
+func GazetteEmpty(g *ProjectGazette) bool {
+	return "" == g.Headline && "" == g.Deck && "" == g.Dateline && "" == g.P1 && "" == g.P2 && "" == g.Caption
+}
+
+// Assist records how much of a light's write-up an AI harness produced.
+// Absent means lit by hand; present with Only false (its zero value, and
+// omitted on the wire) means the AI helped; present with Only true means the
+// AI wrote it alone. Stored only when Harness or Model is non-empty (see
+// AssistEmpty): an assist naming neither is the same as no assist at all.
+type Assist struct {
+	Harness string `json:"harness" bson:"harness,omitempty"`
+	Model   string `json:"model" bson:"model,omitempty"`
+	Only    bool   `json:"only,omitempty" bson:"only,omitempty"`
+}
+
+// AssistEmpty reports whether an assist names neither a harness nor a model,
+// the same predicate shape as GazetteEmpty.
+func AssistEmpty(a *Assist) bool {
+	return "" == a.Harness && "" == a.Model
+}
+
 // Project is a light on the keeper's coast: the portfolio entry rendered as a
 // navigational light on the public site (formerly a "postcard from
 // production"). Body is long-form rich text stored as a sanitized HTML string
@@ -74,32 +111,36 @@ type ProjectFact struct {
 // journal entries to this light by stable Note id. Flagship marks a light for
 // the hero's flagship-plus-two window. PostcardTo/PostcardFrom/Postmarked/Stamp
 // are dormant postcard-era fields: no longer written by the admin, preserved
-// so old documents and revisions stay readable.
+// so old documents and revisions stay readable. Gazette dresses the case study
+// in dead-tree copy and Assist records how much of it an AI harness wrote;
+// both drop to nil when their contents are effectively empty.
 type Project struct {
-	Id           string        `json:"id" bson:"_id,omitempty"`
-	Title        string        `json:"title" bson:"title,omitempty"`
-	Category     string        `json:"category" bson:"category,omitempty"` // backend | games | this website | tinkering
-	Tags         []string      `json:"tags" bson:"tags,omitempty"`
-	ShortDesc    string        `json:"shortDesc" bson:"shortDesc,omitempty"` // "front of card"
-	Body         string        `json:"body" bson:"body,omitempty"`           // sanitized HTML long-form
-	Moral        string        `json:"moral" bson:"moral,omitempty"`
-	PostcardTo   string        `json:"postcardTo" bson:"postcardTo,omitempty"`
-	PostcardFrom string        `json:"postcardFrom" bson:"postcardFrom,omitempty"`
-	Postmarked   string        `json:"postmarked" bson:"postmarked,omitempty"` // freeform display string
-	Slug         string        `json:"slug" bson:"slug,omitempty"`             // optional; unique (case-insensitive) when set; public route /projects/<slug>
-	Image        *string       `json:"image" bson:"image,omitempty"`           // nullable media name (legacy single photo)
-	Stamp        *Stamp        `json:"stamp" bson:"stamp,omitempty"`           // nullable postage decoration (dormant)
-	Light        *Light        `json:"light" bson:"light,omitempty"`           // nullable: nil burns as the default fixed white
-	Images       []string      `json:"images" bson:"images,omitempty"`         // gallery media names, capped at 6, first entry is the entry photo
-	FirstLit     string        `json:"firstLit" bson:"firstLit,omitempty"`     // freeform year shown in the register
-	Facts        []ProjectFact `json:"facts" bson:"facts,omitempty"`           // stat strip, capped at 6 pairs
-	NoteIds      []string      `json:"noteIds" bson:"noteIds,omitempty"`       // tied journal entries, by stable Note id
-	Flagship     bool          `json:"flagship" bson:"flagship"`               // no omitempty: false must survive a replace write
-	Status       string        `json:"status" bson:"status,omitempty"`
-	Order        int           `json:"order" bson:"order"`                         // no omitempty: 0 is a real rack position
-	Featured     bool          `json:"featured" bson:"featured"`                   // no omitempty: false must survive a replace write
-	PublishedAt  string        `json:"publishedAt" bson:"publishedAt"`             // no omitempty: unpublish must clear it
-	WallPos      *WallPos      `json:"wallPos,omitempty" bson:"wallPos,omitempty"` // nullable: nil means not yet placed on the wall
-	CreatedAt    string        `json:"createdAt" bson:"createdAt,omitempty"`
-	UpdatedAt    string        `json:"updatedAt" bson:"updatedAt,omitempty"`
+	Id           string          `json:"id" bson:"_id,omitempty"`
+	Title        string          `json:"title" bson:"title,omitempty"`
+	Category     string          `json:"category" bson:"category,omitempty"` // backend | games | this website | tinkering
+	Tags         []string        `json:"tags" bson:"tags,omitempty"`
+	ShortDesc    string          `json:"shortDesc" bson:"shortDesc,omitempty"` // "front of card"
+	Body         string          `json:"body" bson:"body,omitempty"`           // sanitized HTML long-form
+	Moral        string          `json:"moral" bson:"moral,omitempty"`
+	PostcardTo   string          `json:"postcardTo" bson:"postcardTo,omitempty"`
+	PostcardFrom string          `json:"postcardFrom" bson:"postcardFrom,omitempty"`
+	Postmarked   string          `json:"postmarked" bson:"postmarked,omitempty"` // freeform display string
+	Slug         string          `json:"slug" bson:"slug,omitempty"`             // optional; unique (case-insensitive) when set; public route /projects/<slug>
+	Image        *string         `json:"image" bson:"image,omitempty"`           // nullable media name (legacy single photo)
+	Stamp        *Stamp          `json:"stamp" bson:"stamp,omitempty"`           // nullable postage decoration (dormant)
+	Light        *Light          `json:"light" bson:"light,omitempty"`           // nullable: nil burns as the default fixed white
+	Images       []string        `json:"images" bson:"images,omitempty"`         // gallery media names, capped at 6, first entry is the entry photo
+	FirstLit     string          `json:"firstLit" bson:"firstLit,omitempty"`     // freeform year shown in the register
+	Facts        []ProjectFact   `json:"facts" bson:"facts,omitempty"`           // stat strip, capped at 6 pairs
+	NoteIds      []string        `json:"noteIds" bson:"noteIds,omitempty"`       // tied journal entries, by stable Note id
+	Flagship     bool            `json:"flagship" bson:"flagship"`               // no omitempty: false must survive a replace write
+	Status       string          `json:"status" bson:"status,omitempty"`
+	Order        int             `json:"order" bson:"order"`                         // no omitempty: 0 is a real rack position
+	Featured     bool            `json:"featured" bson:"featured"`                   // no omitempty: false must survive a replace write
+	PublishedAt  string          `json:"publishedAt" bson:"publishedAt"`             // no omitempty: unpublish must clear it
+	WallPos      *WallPos        `json:"wallPos,omitempty" bson:"wallPos,omitempty"` // nullable: nil means not yet placed on the wall
+	Gazette      *ProjectGazette `json:"gazette,omitempty" bson:"gazette,omitempty"` // nullable: only non-empty keys stored, a fully empty gazette is dropped
+	Assist       *Assist         `json:"assist,omitempty" bson:"assist,omitempty"`   // nullable: absent means lit by hand, stored only when harness or model is non-empty
+	CreatedAt    string          `json:"createdAt" bson:"createdAt,omitempty"`
+	UpdatedAt    string          `json:"updatedAt" bson:"updatedAt,omitempty"`
 }

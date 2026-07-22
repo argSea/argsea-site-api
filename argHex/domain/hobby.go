@@ -32,7 +32,9 @@ const (
 // LastLog carry the dates. Tags survive from the old shape: the home
 // currently-learning card renders them, and the migration never touches them.
 // NoteIds ties journal entries to this ship by stable Note id. Order is a
-// manual sort key so the keeper arranges the log by hand.
+// manual sort key so the keeper arranges the log by hand. Gauge is the ship's
+// self-assessed enthusiasm 0-100, clamped on write; a pointer so an older
+// hobby with no opinion stays unset rather than reading as zero.
 type Hobby struct {
 	Id        string   `json:"id" bson:"_id,omitempty"`
 	Name      string   `json:"name" bson:"name,omitempty"`
@@ -49,6 +51,7 @@ type Hobby struct {
 	Tags      []string `json:"tags" bson:"tags,omitempty"`
 	NoteIds   []string `json:"noteIds" bson:"noteIds,omitempty"` // tied journal entries, by stable Note id
 	Order     int      `json:"order" bson:"order"`
+	Gauge     *int     `json:"gauge,omitempty" bson:"gauge,omitempty"` // nullable: self-assessed enthusiasm 0-100, absent means never rated
 	CreatedAt string   `json:"createdAt" bson:"createdAt,omitempty"`
 	UpdatedAt string   `json:"updatedAt" bson:"updatedAt,omitempty"`
 }
@@ -101,4 +104,27 @@ func clamp(v, lo, hi float64) float64 {
 // state: every ship stands somewhere.
 func ValidHobbyState(state string) bool {
 	return hobbyStates[state]
+}
+
+// The gauge's clamp band: a self-assessed enthusiasm reads 0-100, nothing else.
+const (
+	gaugeMin = 0
+	gaugeMax = 100
+)
+
+// ClampGauge snaps a hobby's enthusiasm into 0-100, the same way ClampCoord
+// snaps a bearing into the chart window. A nil gauge is unrated and stays
+// nil: the sanctioned no-opinion state, distinct from a gauge of 0.
+func ClampGauge(g *int) {
+	if nil == g {
+		return
+	}
+
+	if gaugeMin > *g {
+		*g = gaugeMin
+	}
+
+	if gaugeMax < *g {
+		*g = gaugeMax
+	}
 }

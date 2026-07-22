@@ -81,6 +81,9 @@ func (h hobbyCRUDService) Create(hobby domain.Hobby) (domain.Hobby, error) {
 	// an off-window bearing snaps into the chart window before anything is stored
 	clampBearings(&hobby)
 
+	// an out-of-range gauge snaps to 0-100 before anything is stored
+	domain.ClampGauge(hobby.Gauge)
+
 	now := nowStamp()
 
 	hobby.Id = ""
@@ -144,6 +147,9 @@ func (h hobbyCRUDService) Update(hobby domain.Hobby) (domain.Hobby, error) {
 	}
 
 	clampBearings(&hobby)
+
+	// an out-of-range gauge snaps to 0-100 before anything is stored
+	domain.ClampGauge(hobby.Gauge)
 
 	hobby.CreatedAt = existing.CreatedAt
 	hobby.UpdatedAt = nowStamp()

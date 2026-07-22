@@ -104,7 +104,7 @@ func TestLegacyDocRoundTripsWithoutEggBlocks(t *testing.T) {
 	if err := bson.Unmarshal(raw, &doc); nil != err {
 		t.Fatalf("unmarshal to doc failed: %v", err)
 	}
-	for _, key := range []string{"eggs", "catPages", "catSpots", "bottleProverbs", "lighthouses", "wallGhost", "stores"} {
+	for _, key := range []string{"eggs", "catPages", "catSpots", "bottleProverbs", "lighthouses", "wallGhost", "stores", "gazette"} {
 		if _, present := doc[key]; present {
 			t.Fatalf("legacy doc grew a %q block it never had: %v", key, doc)
 		}
@@ -114,8 +114,8 @@ func TestLegacyDocRoundTripsWithoutEggBlocks(t *testing.T) {
 	if err := bson.Unmarshal(raw, &back); nil != err {
 		t.Fatalf("unmarshal to SiteCopy failed: %v", err)
 	}
-	if nil != back.Eggs || nil != back.CatPages || nil != back.CatSpots || nil != back.WallGhost {
-		t.Fatalf("legacy doc should load with nil egg config, got eggs=%+v catPages=%+v catSpots=%+v wallGhost=%+v", back.Eggs, back.CatPages, back.CatSpots, back.WallGhost)
+	if nil != back.Eggs || nil != back.CatPages || nil != back.CatSpots || nil != back.WallGhost || nil != back.Gazette {
+		t.Fatalf("legacy doc should load with nil egg config, got eggs=%+v catPages=%+v catSpots=%+v wallGhost=%+v gazette=%+v", back.Eggs, back.CatPages, back.CatSpots, back.WallGhost, back.Gazette)
 	}
 }
 
@@ -220,5 +220,40 @@ func TestLighthousesKeepTheirKeys(t *testing.T) {
 	}
 	if 1 != len(back.Lighthouses) || "Fastnet Rock" != back.Lighthouses[0].Name || "51°23′N 9°36′W" != back.Lighthouses[0].Pos {
 		t.Fatalf("light list did not round-trip: %+v", back.Lighthouses)
+	}
+}
+
+// The Gull Post masthead's dressing is a nullable singleton block, the same
+// shape as WallGhost: absent means the site falls back to its own default.
+
+func TestGazetteSurvivesBsonRoundTrip(t *testing.T) {
+	flags := domain.SiteCopy{
+		Gazette: &domain.Gazette{Vol: "XLII", Presently: "fog rolling in off the point"},
+	}
+
+	raw, err := bson.Marshal(flags)
+	if nil != err {
+		t.Fatalf("marshal failed: %v", err)
+	}
+
+	var doc bson.M
+	if err := bson.Unmarshal(raw, &doc); nil != err {
+		t.Fatalf("unmarshal to doc failed: %v", err)
+	}
+
+	gazette, ok := doc["gazette"].(bson.M)
+	if !ok {
+		t.Fatalf("gazette block missing from the persisted doc: %v", doc)
+	}
+	if "XLII" != gazette["vol"] {
+		t.Fatalf("expected vol XLII in the persisted doc, got %v", gazette["vol"])
+	}
+
+	var back domain.SiteCopy
+	if err := bson.Unmarshal(raw, &back); nil != err {
+		t.Fatalf("unmarshal to SiteCopy failed: %v", err)
+	}
+	if nil == back.Gazette || "XLII" != back.Gazette.Vol || "fog rolling in off the point" != back.Gazette.Presently {
+		t.Fatalf("gazette did not round-trip: %+v", back.Gazette)
 	}
 }

@@ -164,6 +164,23 @@ func validateImages(images []string) error {
 	return nil
 }
 
+// normalizeGazette drops a fully empty gazette rather than storing a bare {}
+// on the wire: a project with every gazette key blank is the same as no
+// gazette at all.
+func normalizeGazette(project *domain.Project) {
+	if nil != project.Gazette && domain.GazetteEmpty(project.Gazette) {
+		project.Gazette = nil
+	}
+}
+
+// normalizeAssist drops an assist naming neither harness nor model, the same
+// way normalizeGazette drops an empty gazette.
+func normalizeAssist(project *domain.Project) {
+	if nil != project.Assist && domain.AssistEmpty(project.Assist) {
+		project.Assist = nil
+	}
+}
+
 // validateFacts trims each pair in place and checks the cap. A pair with
 // either half empty would render a blank cell in the stat strip, so it is
 // rejected rather than silently stored, the same way an empty gallery name is.
@@ -307,6 +324,11 @@ func (p projectCRUDService) Create(project domain.Project) (domain.Project, erro
 	project.Body = utility.SanitizeHTML(project.Body)
 	project.FirstLit = strings.TrimSpace(project.FirstLit)
 
+	// a fully empty gazette or an assist naming neither harness nor model is
+	// the same as none at all; drop it before anything is written
+	normalizeGazette(&project)
+	normalizeAssist(&project)
+
 	if "" == project.Status {
 		project.Status = domain.StatusDraft
 	}
@@ -384,6 +406,12 @@ func (p projectCRUDService) Update(project domain.Project) (domain.Project, erro
 
 	project.Body = utility.SanitizeHTML(project.Body)
 	project.FirstLit = strings.TrimSpace(project.FirstLit)
+
+	// a fully empty gazette or an assist naming neither harness nor model is
+	// the same as none at all; drop it before anything is written
+	normalizeGazette(&project)
+	normalizeAssist(&project)
+
 	project.Status = existing.Status
 	project.PublishedAt = existing.PublishedAt
 	project.Order = existing.Order
