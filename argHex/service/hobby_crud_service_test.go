@@ -381,6 +381,97 @@ func TestHobbyNoteIdsAbsentStaysAbsentOnTheWire(t *testing.T) {
 	}
 }
 
+// gaugeEdges walks each side of the gauge's clamp band: an out-of-range value
+// snaps to the bound, an in-band value rides through untouched.
+var gaugeEdges = []struct {
+	name string
+	in   int
+	want int
+}{
+	{"below the low bound", -20, 0},
+	{"above the high bound", 250, 100},
+	{"in band", 42, 42},
+}
+
+func TestGaugeClampsHighAndLow(t *testing.T) {
+	for _, edge := range gaugeEdges {
+		hobbies := newHobbies()
+		gauge := edge.in
+
+		saved, err := hobbies.Create(domain.Hobby{Name: "Piano", State: domain.StateMoored, Gauge: &gauge})
+
+		if nil != err {
+			t.Fatalf("%s: create failed: %v", edge.name, err)
+		}
+
+		stored := hobbies.Read(saved.Id)
+
+		if nil == stored.Gauge || edge.want != *stored.Gauge {
+			t.Fatalf("%s: got %+v, want %v", edge.name, stored.Gauge, edge.want)
+		}
+
+		update := edge.in
+
+		if _, err := hobbies.Update(domain.Hobby{Id: saved.Id, Name: "Piano", State: domain.StateMoored, Gauge: &update}); nil != err {
+			t.Fatalf("%s: update failed: %v", edge.name, err)
+		}
+
+		stored = hobbies.Read(saved.Id)
+
+		if nil == stored.Gauge || edge.want != *stored.Gauge {
+			t.Fatalf("%s (update): got %+v, want %v", edge.name, stored.Gauge, edge.want)
+		}
+	}
+}
+
+func TestGaugeAbsentStaysAbsentAndDistinctFromZero(t *testing.T) {
+	hobbies := newHobbies()
+
+	unrated, err := hobbies.Create(domain.Hobby{Name: "Kite", State: domain.StateMarooned})
+
+	if nil != err {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	stored := hobbies.Read(unrated.Id)
+
+	if nil != stored.Gauge {
+		t.Fatalf("expected no gauge on an unrated hobby, got %+v", stored.Gauge)
+	}
+
+	// the json tag omits gauge on absence too (unlike coord/from's json null),
+	// so check the wire the same way the noteIds absence test does
+	doc, err := bson.Marshal(stored)
+
+	if nil != err {
+		t.Fatalf("hobby did not marshal to bson: %v", err)
+	}
+
+	var raw bson.M
+
+	if err := bson.Unmarshal(doc, &raw); nil != err {
+		t.Fatalf("bson did not unmarshal: %v", err)
+	}
+
+	if _, present := raw["gauge"]; present {
+		t.Fatalf("an absent gauge must omit the field in the stored document, got %+v", raw)
+	}
+
+	// a gauge explicitly set to zero is a real rating, not a missing one
+	zero := 0
+	rated, err := hobbies.Create(domain.Hobby{Name: "Piano", State: domain.StateMoored, Gauge: &zero})
+
+	if nil != err {
+		t.Fatalf("create with a zero gauge failed: %v", err)
+	}
+
+	storedZero := hobbies.Read(rated.Id)
+
+	if nil == storedZero.Gauge || 0 != *storedZero.Gauge {
+		t.Fatalf("expected an explicit zero gauge to round-trip as zero, not absent, got %+v", storedZero.Gauge)
+	}
+}
+
 func TestListActiveOnlyIsMooredOnly(t *testing.T) {
 	hobbies := newHobbies()
 

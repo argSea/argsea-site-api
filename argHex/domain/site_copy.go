@@ -20,6 +20,7 @@ type SiteCopy struct {
 	Lighthouses    []Lighthouse    `json:"lighthouses" bson:"lighthouses,omitempty"`
 	Stores         []StoreDrawer   `json:"stores" bson:"stores,omitempty"`
 	WallGhost      *WallGhost      `json:"wallGhost,omitempty" bson:"wallGhost,omitempty"` // nullable: nil means the site uses its default ghost placement
+	Gazette        *Gazette        `json:"gazette,omitempty" bson:"gazette,omitempty"`     // nullable: singleton dressing for the Gull Post masthead
 	UpdatedAt      string          `json:"updatedAt" bson:"updatedAt,omitempty"`
 }
 
@@ -66,4 +67,12 @@ type Lighthouse struct {
 type StoreDrawer struct {
 	Label string   `json:"label" bson:"label"`
 	Tools []string `json:"tools" bson:"tools"`
+}
+
+// Gazette dresses the Gull Post masthead with its volume number and its
+// "presently" strapline. A nil Gazette means the site falls back to its own
+// default dressing.
+type Gazette struct {
+	Vol       string `json:"vol" bson:"vol,omitempty"`
+	Presently string `json:"presently" bson:"presently,omitempty"`
 }

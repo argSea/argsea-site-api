@@ -9,6 +9,7 @@ import (
 	"github.com/argSea/argsea-site-api/argHex/in_port"
 	"github.com/argSea/argsea-site-api/argHex/out_adapter"
 	"github.com/argSea/argsea-site-api/argHex/service"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // newProjects wires a project service onto in-memory fakes for repo, revisions,
@@ -489,5 +490,169 @@ func TestUpdateWithoutStampClearsIt(t *testing.T) {
 
 	if nil != projects.Read(saved.Id).Stamp {
 		t.Fatalf("stored document should have no stamp after the clearing update")
+	}
+}
+
+// validGazette returns a gazette with every key set, for tests to mutate.
+func validGazette() *domain.ProjectGazette {
+	return &domain.ProjectGazette{
+		Headline: "SHIP DELIVERS ON TIME",
+		Deck:     "a rare occurrence, keeper reports",
+		Dateline: "ARGYLL, PRESENTLY",
+		P1:       "the first paragraph.",
+		P2:       "the second paragraph.",
+		Caption:  "the ship, pictured",
+	}
+}
+
+func TestGazetteRoundTripsAndOmitsEmptyKeys(t *testing.T) {
+	projects := newProjects()
+
+	saved, err := projects.Create(domain.Project{Title: "Dressed", Gazette: &domain.ProjectGazette{Headline: "SHIP DELIVERS ON TIME"}})
+
+	if nil != err {
+		t.Fatalf("create with a partial gazette failed: %v", err)
+	}
+
+	stored := projects.Read(saved.Id)
+
+	if nil == stored.Gazette || "SHIP DELIVERS ON TIME" != stored.Gazette.Headline {
+		t.Fatalf("expected the gazette headline persisted, got %+v", stored.Gazette)
+	}
+
+	doc, err := bson.Marshal(stored)
+
+	if nil != err {
+		t.Fatalf("project did not marshal to bson: %v", err)
+	}
+
+	var raw bson.M
+
+	if err := bson.Unmarshal(doc, &raw); nil != err {
+		t.Fatalf("bson did not unmarshal: %v", err)
+	}
+
+	gazette, ok := raw["gazette"].(bson.M)
+
+	if !ok {
+		t.Fatalf("gazette block missing from the persisted doc: %v", raw)
+	}
+
+	if _, present := gazette["deck"]; present {
+		t.Fatalf("an empty gazette key must be omitted from the stored document, got %+v", gazette)
+	}
+
+	// swap in every key on update
+	edited, err := projects.Update(domain.Project{Id: saved.Id, Title: "Dressed", Gazette: validGazette()})
+
+	if nil != err {
+		t.Fatalf("update with a full gazette failed: %v", err)
+	}
+
+	if nil == edited.Gazette || "a rare occurrence, keeper reports" != edited.Gazette.Deck || "the ship, pictured" != edited.Gazette.Caption {
+		t.Fatalf("expected every gazette key persisted on update, got %+v", edited.Gazette)
+	}
+}
+
+func TestFullyEmptyGazetteIsDropped(t *testing.T) {
+	projects := newProjects()
+
+	saved, err := projects.Create(domain.Project{Title: "Undressed", Gazette: &domain.ProjectGazette{}})
+
+	if nil != err {
+		t.Fatalf("create with an empty gazette failed: %v", err)
+	}
+
+	if nil != saved.Gazette {
+		t.Fatalf("expected a fully empty gazette dropped to nil, got %+v", saved.Gazette)
+	}
+
+	stored := projects.Read(saved.Id)
+
+	if nil != stored.Gazette {
+		t.Fatalf("expected the stored gazette to stay nil, got %+v", stored.Gazette)
+	}
+
+	// an update that empties a previously-dressed gazette must drop it too
+	dressed, _ := projects.Create(domain.Project{Title: "Dressed", Gazette: validGazette()})
+
+	cleared, err := projects.Update(domain.Project{Id: dressed.Id, Title: "Dressed", Gazette: &domain.ProjectGazette{}})
+
+	if nil != err {
+		t.Fatalf("update to an empty gazette failed: %v", err)
+	}
+
+	if nil != cleared.Gazette {
+		t.Fatalf("expected an update to a fully empty gazette dropped to nil, got %+v", cleared.Gazette)
+	}
+}
+
+func TestAbsentGazetteIsValid(t *testing.T) {
+	projects := newProjects()
+
+	saved, err := projects.Create(domain.Project{Title: "Undressed"})
+
+	if nil != err {
+		t.Fatalf("create without a gazette failed: %v", err)
+	}
+
+	if nil != saved.Gazette {
+		t.Fatalf("expected no gazette on the saved project, got %+v", saved.Gazette)
+	}
+}
+
+func TestAssistOnlyRoundTrips(t *testing.T) {
+	projects := newProjects()
+
+	saved, err := projects.Create(domain.Project{Title: "AI-lit", Assist: &domain.Assist{Harness: "claude-code", Model: "sonnet", Only: true}})
+
+	if nil != err {
+		t.Fatalf("create with an assist failed: %v", err)
+	}
+
+	stored := projects.Read(saved.Id)
+
+	if nil == stored.Assist || "claude-code" != stored.Assist.Harness || "sonnet" != stored.Assist.Model || !stored.Assist.Only {
+		t.Fatalf("expected the assist persisted with only true, got %+v", stored.Assist)
+	}
+
+	// dropping only on an update means "AI helped", not "lit by AI alone"
+	edited, err := projects.Update(domain.Project{Id: saved.Id, Title: "AI-lit", Assist: &domain.Assist{Harness: "claude-code", Model: "sonnet"}})
+
+	if nil != err {
+		t.Fatalf("update clearing only failed: %v", err)
+	}
+
+	if nil == edited.Assist || edited.Assist.Only {
+		t.Fatalf("expected only cleared to false on update, got %+v", edited.Assist)
+	}
+}
+
+func TestAssistDroppedWhenHarnessAndModelBothEmpty(t *testing.T) {
+	projects := newProjects()
+
+	// only alone names neither a harness nor a model, so it isn't a real assist
+	saved, err := projects.Create(domain.Project{Title: "By hand", Assist: &domain.Assist{Only: true}})
+
+	if nil != err {
+		t.Fatalf("create with an empty assist failed: %v", err)
+	}
+
+	if nil != saved.Assist {
+		t.Fatalf("expected an assist naming neither harness nor model dropped to nil, got %+v", saved.Assist)
+	}
+}
+
+func TestAbsentAssistIsValid(t *testing.T) {
+	projects := newProjects()
+
+	saved, err := projects.Create(domain.Project{Title: "By hand"})
+
+	if nil != err {
+		t.Fatalf("create without an assist failed: %v", err)
+	}
+
+	if nil != saved.Assist {
+		t.Fatalf("expected no assist on the saved project, got %+v", saved.Assist)
 	}
 }
