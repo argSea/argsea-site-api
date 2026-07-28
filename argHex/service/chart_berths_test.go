@@ -131,6 +131,36 @@ func TestPlateClampsOnUpdate(t *testing.T) {
 	}
 }
 
+// The coord clamp guards the update path too, not just create: an off-window
+// bearing must never reach the store by the back door of an edit.
+func TestCoordClampsOnUpdate(t *testing.T) {
+	projects := newProjects()
+	light, _ := projects.Create(domain.Project{Title: "A light", Coord: &domain.Coord{Lat: 58.1, Lon: -7.2}})
+
+	if _, err := projects.Update(domain.Project{Id: light.Id, Title: "A light", Coord: &domain.Coord{Lat: 99.0, Lon: 99.0}}); nil != err {
+		t.Fatalf("project update failed: %v", err)
+	}
+
+	storedLight := projects.Read(light.Id)
+
+	if nil == storedLight.Coord || 58.56 != storedLight.Coord.Lat || -6.59 != storedLight.Coord.Lon {
+		t.Fatalf("project update must clamp an off-window coord, got %+v", storedLight.Coord)
+	}
+
+	notes := newNotes()
+	thought, _ := notes.Create(domain.Note{Title: "A thought", Coord: &domain.Coord{Lat: 58.1, Lon: -7.2}})
+
+	if _, err := notes.Update(domain.Note{Id: thought.Id, Title: "A thought", Coord: &domain.Coord{Lat: -99.0, Lon: -99.0}}); nil != err {
+		t.Fatalf("note update failed: %v", err)
+	}
+
+	storedNote := notes.Read(thought.Id)
+
+	if nil == storedNote.Coord || 57.82 != storedNote.Coord.Lat || -7.94 != storedNote.Coord.Lon {
+		t.Fatalf("note update must clamp an off-window coord, got %+v", storedNote.Coord)
+	}
+}
+
 func TestBerthFieldsRoundTripThroughTheStore(t *testing.T) {
 	projects := newProjects()
 	light, err := projects.Create(domain.Project{
@@ -248,9 +278,9 @@ func dressingKeysPresent(t *testing.T, entity interface{}) (bool, bool) {
 	}
 
 	_, plate := raw["plate"]
-	_, cap := raw["cap"]
+	_, capKey := raw["cap"]
 
-	return plate, cap
+	return plate, capKey
 }
 
 // The berth fields carry no omitempty because clearing one is a real edit: a
@@ -262,8 +292,8 @@ func TestClearingTheDressingSurvivesAReplaceWrite(t *testing.T) {
 	light, _ := projects.Create(domain.Project{Title: "A light", Plate: 2, Cap: "a caption"})
 	cleared, _ := projects.Update(domain.Project{Id: light.Id, Title: "A light"})
 
-	if plate, cap := dressingKeysPresent(t, cleared); !plate || !cap {
-		t.Fatalf("a cleared project dressing must still carry both keys, got plate %v / cap %v", plate, cap)
+	if plate, capKey := dressingKeysPresent(t, cleared); !plate || !capKey {
+		t.Fatalf("a cleared project dressing must still carry both keys, got plate %v / cap %v", plate, capKey)
 	}
 
 	if stored := projects.Read(light.Id); 0 != stored.Plate || "" != stored.Cap {
@@ -274,8 +304,8 @@ func TestClearingTheDressingSurvivesAReplaceWrite(t *testing.T) {
 	thought, _ := notes.Create(domain.Note{Title: "A thought", Plate: 3, Cap: "a caption"})
 	clearedNote, _ := notes.Update(domain.Note{Id: thought.Id, Title: "A thought"})
 
-	if plate, cap := dressingKeysPresent(t, clearedNote); !plate || !cap {
-		t.Fatalf("a cleared note dressing must still carry both keys, got plate %v / cap %v", plate, cap)
+	if plate, capKey := dressingKeysPresent(t, clearedNote); !plate || !capKey {
+		t.Fatalf("a cleared note dressing must still carry both keys, got plate %v / cap %v", plate, capKey)
 	}
 
 	if stored := notes.Read(thought.Id); 0 != stored.Plate || "" != stored.Cap {
@@ -286,11 +316,62 @@ func TestClearingTheDressingSurvivesAReplaceWrite(t *testing.T) {
 	ship, _ := hobbies.Create(domain.Hobby{Name: "A ship", State: domain.StateMoored, Plate: 1, Cap: "a caption"})
 	clearedShip, _ := hobbies.Update(domain.Hobby{Id: ship.Id, Name: "A ship", State: domain.StateMoored})
 
-	if plate, cap := dressingKeysPresent(t, clearedShip); !plate || !cap {
-		t.Fatalf("a cleared ship dressing must still carry both keys, got plate %v / cap %v", plate, cap)
+	if plate, capKey := dressingKeysPresent(t, clearedShip); !plate || !capKey {
+		t.Fatalf("a cleared ship dressing must still carry both keys, got plate %v / cap %v", plate, capKey)
 	}
 
 	if stored := hobbies.Read(ship.Id); 0 != stored.Plate || "" != stored.Cap {
 		t.Fatalf("clearing a ship's dressing must survive the write, got %d / %q", stored.Plate, stored.Cap)
 	}
+}
+
+// assertBerthKeysOnTheWire checks the exact JSON a consumer receives for an
+// entity carrying no berth data: all three keys present, with null / 0 / "".
+// Comparing the raw bytes rather than a decoded value is the point, since an
+// absent key and a zero one both decode to the same Go value and only the raw
+// document tells them apart.
+func assertBerthKeysOnTheWire(t *testing.T, what string, entity interface{}) {
+	t.Helper()
+
+	body, err := json.Marshal(entity)
+
+	if nil != err {
+		t.Fatalf("%s did not marshal to json: %v", what, err)
+	}
+
+	var raw map[string]json.RawMessage
+
+	if err := json.Unmarshal(body, &raw); nil != err {
+		t.Fatalf("%s json did not unmarshal: %v", what, err)
+	}
+
+	for key, want := range map[string]string{"coord": "null", "plate": "0", "cap": `""`} {
+		got, present := raw[key]
+
+		if !present {
+			t.Fatalf("%s must always serialize %q, got %s", what, key, body)
+		}
+
+		if want != string(got) {
+			t.Fatalf("%s %q must serialize as %s, got %s", what, key, want, got)
+		}
+	}
+}
+
+// The consumers build against a promise the contract's amendment makes: plate,
+// cap and coord always reach the wire, so an admin or a site never has to tell
+// an absent key from a cleared one. omitempty on any of the three would break
+// that silently, which is exactly what this guards.
+func TestBerthKeysAlwaysReachTheWire(t *testing.T) {
+	projects := newProjects()
+	light, _ := projects.Create(domain.Project{Title: "An undressed light"})
+	assertBerthKeysOnTheWire(t, "project", projects.Read(light.Id))
+
+	notes := newNotes()
+	thought, _ := notes.Create(domain.Note{Title: "An undressed thought"})
+	assertBerthKeysOnTheWire(t, "note", notes.Read(thought.Id))
+
+	hobbies := newHobbies()
+	ship, _ := hobbies.Create(domain.Hobby{Name: "An undressed ship", State: domain.StateMoored})
+	assertBerthKeysOnTheWire(t, "hobby", hobbies.Read(ship.Id))
 }
