@@ -60,17 +60,21 @@ type Hobby struct {
 }
 
 // Coord is a point on the wandering chart. Lat/Lon are plain floats over the
-// keeper's fictional waters; a write clamps them into the chart window (see
-// ClampCoord) so an off-window mark still lands somewhere the chart can draw.
+// keeper's fictional waters. Two different rules guard it depending on whose
+// coord it is: a hobby's snaps into the chart window below (see ClampCoord),
+// while a project's or a note's is only checked for being a real point on earth
+// (see CoordOnEarth). Which frame a berth renders in is the site's business.
 type Coord struct {
 	Lat float64 `json:"lat" bson:"lat"`
 	Lon float64 `json:"lon" bson:"lon"`
 }
 
-// The chart's clamp band. The site transcribes the mock's chart window
-// (chartWin lat 57.80-58.58, lon -7.98 to -6.55) as CHART_WIN; these inset it
-// 3% per side so a mark snapped to a bound sits just inside the frame instead
-// of half-clipping at the edge. The same numbers live in the admin editor.
+// The hobby chart's clamp band, and hobby's alone. The site transcribes the
+// mock's chart window (chartWin lat 57.80-58.58, lon -7.98 to -6.55) as
+// CHART_WIN; these inset it 3% per side so a mark snapped to a bound sits just
+// inside the frame instead of half-clipping at the edge. Projects and notes
+// deliberately do not use this band: it is a presentation window, and treating
+// it as the wire's law silently moved berths that sat above its ceiling.
 const (
 	chartLatMin = 57.82
 	chartLatMax = 58.56
@@ -89,6 +93,32 @@ func ClampCoord(c *Coord) {
 
 	c.Lat = clamp(c.Lat, chartLatMin, chartLatMax)
 	c.Lon = clamp(c.Lon, chartLonMin, chartLonMax)
+}
+
+// The earth's own bounds. Nothing to do with any chart window: these are the
+// only limits a latitude and a longitude have as numbers.
+const (
+	earthLatMin = -90.0
+	earthLatMax = 90.0
+	earthLonMin = -180.0
+	earthLonMax = 180.0
+)
+
+// CoordOnEarth reports whether a coord is a real point on the globe, the shape
+// check a project's or a note's bearing gets on write. It deliberately does not
+// look at any chart window: a chart window is presentation, the site decides
+// which frame a berth renders in, and validating one here would silently move a
+// berth that sits outside it. A nil coord is uncharted, which is valid.
+func CoordOnEarth(c *Coord) bool {
+	if nil == c {
+		return true
+	}
+
+	if earthLatMin > c.Lat || earthLatMax < c.Lat {
+		return false
+	}
+
+	return earthLonMin <= c.Lon && earthLonMax >= c.Lon
 }
 
 func clamp(v, lo, hi float64) float64 {

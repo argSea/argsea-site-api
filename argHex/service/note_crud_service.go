@@ -36,12 +36,16 @@ func (n noteCRUDService) Read(id string) domain.Note {
 func (n noteCRUDService) Create(note domain.Note) (domain.Note, error) {
 	now := nowStamp()
 
+	// an off-earth bearing never reaches the store; the chart window a berth
+	// renders in is the site's call, not a write-time rule
+	if err := validateCoord(note.Coord); nil != err {
+		return domain.Note{}, err
+	}
+
 	note.Id = ""
 	note.Body = utility.SanitizeHTML(note.Body)
 
-	// an off-window bearing snaps into the chart window before anything is
-	// stored, and a negative plate index snaps to zero
-	domain.ClampCoord(note.Coord)
+	// a negative plate index snaps to zero before anything is stored
 	domain.ClampPlate(&note.Plate)
 
 	if "" == note.Status {
@@ -81,11 +85,13 @@ func (n noteCRUDService) Update(note domain.Note) (domain.Note, error) {
 		return domain.Note{}, errors.New("note not found")
 	}
 
+	if err := validateCoord(note.Coord); nil != err {
+		return domain.Note{}, err
+	}
+
 	note.Body = utility.SanitizeHTML(note.Body)
 
-	// an off-window bearing snaps into the chart window before anything is
-	// stored, and a negative plate index snaps to zero
-	domain.ClampCoord(note.Coord)
+	// a negative plate index snaps to zero before anything is stored
 	domain.ClampPlate(&note.Plate)
 
 	note.Status = existing.Status

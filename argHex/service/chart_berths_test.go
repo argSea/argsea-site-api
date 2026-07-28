@@ -131,33 +131,47 @@ func TestPlateClampsOnUpdate(t *testing.T) {
 	}
 }
 
-// The coord clamp guards the update path too, not just create: an off-window
-// bearing must never reach the store by the back door of an edit.
-func TestCoordClampsOnUpdate(t *testing.T) {
+// The earth-range check guards the update path too, not just create: an
+// off-earth bearing must never reach the store by the back door of an edit, and
+// a rejected edit must leave the stored bearing exactly as it was.
+func TestCoordValidatesEarthRangeOnUpdate(t *testing.T) {
 	projects := newProjects()
 	light, _ := projects.Create(domain.Project{Title: "A light", Coord: &domain.Coord{Lat: 58.1, Lon: -7.2}})
 
-	if _, err := projects.Update(domain.Project{Id: light.Id, Title: "A light", Coord: &domain.Coord{Lat: 99.0, Lon: 99.0}}); nil != err {
-		t.Fatalf("project update failed: %v", err)
+	// a berth above the hobby chart's old ceiling is a legitimate edit
+	if _, err := projects.Update(domain.Project{Id: light.Id, Title: "A light", Coord: &domain.Coord{Lat: 58.61, Lon: -7.2}}); nil != err {
+		t.Fatalf("project update with an on-earth coord failed: %v", err)
 	}
 
-	storedLight := projects.Read(light.Id)
+	if stored := projects.Read(light.Id); nil == stored.Coord || 58.61 != stored.Coord.Lat {
+		t.Fatalf("project update must store an on-earth coord unmoved, got %+v", stored.Coord)
+	}
 
-	if nil == storedLight.Coord || 58.56 != storedLight.Coord.Lat || -6.59 != storedLight.Coord.Lon {
-		t.Fatalf("project update must clamp an off-window coord, got %+v", storedLight.Coord)
+	if _, err := projects.Update(domain.Project{Id: light.Id, Title: "A light", Coord: &domain.Coord{Lat: 99.0, Lon: 99.0}}); nil == err {
+		t.Fatalf("expected project update to reject an off-earth coord")
+	}
+
+	if stored := projects.Read(light.Id); nil == stored.Coord || 58.61 != stored.Coord.Lat {
+		t.Fatalf("a rejected project update must leave the stored coord intact, got %+v", stored.Coord)
 	}
 
 	notes := newNotes()
 	thought, _ := notes.Create(domain.Note{Title: "A thought", Coord: &domain.Coord{Lat: 58.1, Lon: -7.2}})
 
-	if _, err := notes.Update(domain.Note{Id: thought.Id, Title: "A thought", Coord: &domain.Coord{Lat: -99.0, Lon: -99.0}}); nil != err {
-		t.Fatalf("note update failed: %v", err)
+	if _, err := notes.Update(domain.Note{Id: thought.Id, Title: "A thought", Coord: &domain.Coord{Lat: 58.61, Lon: -8.2}}); nil != err {
+		t.Fatalf("note update with an on-earth coord failed: %v", err)
 	}
 
-	storedNote := notes.Read(thought.Id)
+	if stored := notes.Read(thought.Id); nil == stored.Coord || 58.61 != stored.Coord.Lat || -8.2 != stored.Coord.Lon {
+		t.Fatalf("note update must store an on-earth coord unmoved, got %+v", stored.Coord)
+	}
 
-	if nil == storedNote.Coord || 57.82 != storedNote.Coord.Lat || -7.94 != storedNote.Coord.Lon {
-		t.Fatalf("note update must clamp an off-window coord, got %+v", storedNote.Coord)
+	if _, err := notes.Update(domain.Note{Id: thought.Id, Title: "A thought", Coord: &domain.Coord{Lat: -99.0, Lon: -199.0}}); nil == err {
+		t.Fatalf("expected note update to reject an off-earth coord")
+	}
+
+	if stored := notes.Read(thought.Id); nil == stored.Coord || 58.61 != stored.Coord.Lat {
+		t.Fatalf("a rejected note update must leave the stored coord intact, got %+v", stored.Coord)
 	}
 }
 
@@ -226,17 +240,75 @@ func TestBerthFieldsRoundTripThroughTheStore(t *testing.T) {
 	}
 }
 
-// An off-window coord snaps into the chart window on the new chartables the
-// same way it always has on a hobby, and a null one stays uncharted.
-func TestCoordClampsAndStaysNullableOnProjectAndNote(t *testing.T) {
-	projects := newProjects()
-	light, _ := projects.Create(domain.Project{Title: "A light", Coord: &domain.Coord{Lat: 99.0, Lon: 99.0}})
-	storedLight := projects.Read(light.Id)
+// earthEdges walks the only band a project's or a note's bearing is held to.
+// The two in-band cases sit deliberately outside the hobby chart's old window:
+// clamping berths to that window is the bug this replaced, so a berth above its
+// ceiling has to survive untouched.
+var earthEdges = []struct {
+	name     string
+	lat, lon float64
+	valid    bool
+}{
+	{"a berth above the hobby chart's ceiling is on earth", 58.61, -7.2, true},
+	{"a berth west of the hobby chart's edge is on earth", 58.3, -8.2, true},
+	{"the poles and the antimeridian are on earth", 90.0, 180.0, true},
+	{"a latitude past the pole is not", 99.0, 99.0, false},
+	{"a latitude past the south pole is not", -99.0, -7.2, false},
+	{"a longitude past the antimeridian is not", 58.3, -199.0, false},
+}
 
-	if 58.56 != storedLight.Coord.Lat || -6.59 != storedLight.Coord.Lon {
-		t.Fatalf("an off-window project coord must store clamped, got %+v", storedLight.Coord)
+// A coord is held to the globe and nothing narrower, and a null one stays
+// uncharted. Which chart window a berth renders in is the site's business.
+func TestCoordValidatesEarthRangeOnProjectAndNote(t *testing.T) {
+	for _, edge := range earthEdges {
+		projects := newProjects()
+		light, err := projects.Create(domain.Project{Title: "A light", Coord: &domain.Coord{Lat: edge.lat, Lon: edge.lon}})
+
+		if edge.valid != (nil == err) {
+			t.Fatalf("%s: project create returned %v", edge.name, err)
+		}
+
+		if edge.valid {
+			stored := projects.Read(light.Id)
+
+			if nil == stored.Coord || edge.lat != stored.Coord.Lat || edge.lon != stored.Coord.Lon {
+				t.Fatalf("%s: an on-earth project coord must store unmoved, got %+v", edge.name, stored.Coord)
+			}
+		}
+
+		if !edge.valid {
+			all, _ := projects.List(false, 0)
+
+			if 0 != len(all) {
+				t.Fatalf("%s: a rejected project create must persist nothing, found %d", edge.name, len(all))
+			}
+		}
+
+		notes := newNotes()
+		thought, err := notes.Create(domain.Note{Title: "A thought", Coord: &domain.Coord{Lat: edge.lat, Lon: edge.lon}})
+
+		if edge.valid != (nil == err) {
+			t.Fatalf("%s: note create returned %v", edge.name, err)
+		}
+
+		if edge.valid {
+			stored := notes.Read(thought.Id)
+
+			if nil == stored.Coord || edge.lat != stored.Coord.Lat || edge.lon != stored.Coord.Lon {
+				t.Fatalf("%s: an on-earth note coord must store unmoved, got %+v", edge.name, stored.Coord)
+			}
+		}
+
+		if !edge.valid {
+			all, _ := notes.List(false, 0)
+
+			if 0 != len(all) {
+				t.Fatalf("%s: a rejected note create must persist nothing, found %d", edge.name, len(all))
+			}
+		}
 	}
 
+	projects := newProjects()
 	uncharted, _ := projects.Create(domain.Project{Title: "An unplaced light"})
 
 	if nil != projects.Read(uncharted.Id).Coord {
@@ -244,13 +316,6 @@ func TestCoordClampsAndStaysNullableOnProjectAndNote(t *testing.T) {
 	}
 
 	notes := newNotes()
-	thought, _ := notes.Create(domain.Note{Title: "A thought", Coord: &domain.Coord{Lat: -99.0, Lon: -99.0}})
-	storedNote := notes.Read(thought.Id)
-
-	if 57.82 != storedNote.Coord.Lat || -7.94 != storedNote.Coord.Lon {
-		t.Fatalf("an off-window note coord must store clamped, got %+v", storedNote.Coord)
-	}
-
 	unplaced, _ := notes.Create(domain.Note{Title: "An unplaced thought"})
 
 	if nil != notes.Read(unplaced.Id).Coord {

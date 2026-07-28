@@ -181,6 +181,19 @@ func normalizeAssist(project *domain.Project) {
 	}
 }
 
+// validateCoord gates a berth against the globe and nothing else. A chart
+// window is presentation: the site decides which frame a berth renders in, so
+// validating one here would silently move a berth that sits outside it, which
+// is exactly what clamping to the hobby chart's band did. Notes share this
+// validator; the hobby log keeps its own clamp.
+func validateCoord(coord *domain.Coord) error {
+	if !domain.CoordOnEarth(coord) {
+		return errors.New("coord must be a real point on earth: lat -90 to 90, lon -180 to 180")
+	}
+
+	return nil
+}
+
 // validateFacts trims each pair in place and checks the cap. A pair with
 // either half empty would render a blank cell in the stat strip, so it is
 // rejected rather than silently stored, the same way an empty gallery name is.
@@ -310,6 +323,12 @@ func (p projectCRUDService) Create(project domain.Project) (domain.Project, erro
 		return domain.Project{}, err
 	}
 
+	// an off-earth bearing never reaches the store; the chart window a berth
+	// renders in is the site's call, not a write-time rule
+	if err := validateCoord(project.Coord); nil != err {
+		return domain.Project{}, err
+	}
+
 	if err := p.validateNoteIds(project.NoteIds); nil != err {
 		return domain.Project{}, err
 	}
@@ -329,9 +348,7 @@ func (p projectCRUDService) Create(project domain.Project) (domain.Project, erro
 	normalizeGazette(&project)
 	normalizeAssist(&project)
 
-	// an off-window bearing snaps into the chart window before anything is
-	// stored, and a negative plate index snaps to zero
-	domain.ClampCoord(project.Coord)
+	// a negative plate index snaps to zero before anything is stored
 	domain.ClampPlate(&project.Plate)
 
 	if "" == project.Status {
@@ -401,6 +418,12 @@ func (p projectCRUDService) Update(project domain.Project) (domain.Project, erro
 		return domain.Project{}, err
 	}
 
+	// an off-earth bearing never reaches the store; the chart window a berth
+	// renders in is the site's call, not a write-time rule
+	if err := validateCoord(project.Coord); nil != err {
+		return domain.Project{}, err
+	}
+
 	if err := p.validateNoteIds(project.NoteIds); nil != err {
 		return domain.Project{}, err
 	}
@@ -417,9 +440,7 @@ func (p projectCRUDService) Update(project domain.Project) (domain.Project, erro
 	normalizeGazette(&project)
 	normalizeAssist(&project)
 
-	// an off-window bearing snaps into the chart window before anything is
-	// stored, and a negative plate index snaps to zero
-	domain.ClampCoord(project.Coord)
+	// a negative plate index snaps to zero before anything is stored
 	domain.ClampPlate(&project.Plate)
 
 	project.Status = existing.Status
