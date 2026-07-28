@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/argSea/argsea-site-api/argHex/domain"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // An older document carries none of the berth keys. Every chartable must read
@@ -227,13 +228,43 @@ func TestCoordClampsAndStaysNullableOnProjectAndNote(t *testing.T) {
 	}
 }
 
-// The berth fields carry no omitempty because clearing one is a real edit: an
-// update that drops the caption and the plate must not silently keep the old
-// pair alive through the replace write.
+// dressingKeysPresent reports whether a cleared plate and caption still reach
+// the stored document as keys. The fakes hand a Go struct straight back, so the
+// only place the omitempty decision is observable is the marshalled document,
+// the same way the gauge absence test checks the wire.
+func dressingKeysPresent(t *testing.T, entity interface{}) (bool, bool) {
+	t.Helper()
+
+	doc, err := bson.Marshal(entity)
+
+	if nil != err {
+		t.Fatalf("entity did not marshal to bson: %v", err)
+	}
+
+	var raw bson.M
+
+	if err := bson.Unmarshal(doc, &raw); nil != err {
+		t.Fatalf("bson did not unmarshal: %v", err)
+	}
+
+	_, plate := raw["plate"]
+	_, cap := raw["cap"]
+
+	return plate, cap
+}
+
+// The berth fields carry no omitempty because clearing one is a real edit: a
+// replace write drops the whole document, so a plate of 0 and an empty caption
+// have to travel as keys rather than vanishing and leaving the old pair to be
+// read back off the previous document.
 func TestClearingTheDressingSurvivesAReplaceWrite(t *testing.T) {
 	projects := newProjects()
 	light, _ := projects.Create(domain.Project{Title: "A light", Plate: 2, Cap: "a caption"})
-	projects.Update(domain.Project{Id: light.Id, Title: "A light"})
+	cleared, _ := projects.Update(domain.Project{Id: light.Id, Title: "A light"})
+
+	if plate, cap := dressingKeysPresent(t, cleared); !plate || !cap {
+		t.Fatalf("a cleared project dressing must still carry both keys, got plate %v / cap %v", plate, cap)
+	}
 
 	if stored := projects.Read(light.Id); 0 != stored.Plate || "" != stored.Cap {
 		t.Fatalf("clearing a project's dressing must survive the write, got %d / %q", stored.Plate, stored.Cap)
@@ -241,7 +272,11 @@ func TestClearingTheDressingSurvivesAReplaceWrite(t *testing.T) {
 
 	notes := newNotes()
 	thought, _ := notes.Create(domain.Note{Title: "A thought", Plate: 3, Cap: "a caption"})
-	notes.Update(domain.Note{Id: thought.Id, Title: "A thought"})
+	clearedNote, _ := notes.Update(domain.Note{Id: thought.Id, Title: "A thought"})
+
+	if plate, cap := dressingKeysPresent(t, clearedNote); !plate || !cap {
+		t.Fatalf("a cleared note dressing must still carry both keys, got plate %v / cap %v", plate, cap)
+	}
 
 	if stored := notes.Read(thought.Id); 0 != stored.Plate || "" != stored.Cap {
 		t.Fatalf("clearing a note's dressing must survive the write, got %d / %q", stored.Plate, stored.Cap)
@@ -249,7 +284,11 @@ func TestClearingTheDressingSurvivesAReplaceWrite(t *testing.T) {
 
 	hobbies := newHobbies()
 	ship, _ := hobbies.Create(domain.Hobby{Name: "A ship", State: domain.StateMoored, Plate: 1, Cap: "a caption"})
-	hobbies.Update(domain.Hobby{Id: ship.Id, Name: "A ship", State: domain.StateMoored})
+	clearedShip, _ := hobbies.Update(domain.Hobby{Id: ship.Id, Name: "A ship", State: domain.StateMoored})
+
+	if plate, cap := dressingKeysPresent(t, clearedShip); !plate || !cap {
+		t.Fatalf("a cleared ship dressing must still carry both keys, got plate %v / cap %v", plate, cap)
+	}
 
 	if stored := hobbies.Read(ship.Id); 0 != stored.Plate || "" != stored.Cap {
 		t.Fatalf("clearing a ship's dressing must survive the write, got %d / %q", stored.Plate, stored.Cap)
