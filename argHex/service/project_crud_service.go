@@ -329,6 +329,11 @@ func (p projectCRUDService) Create(project domain.Project) (domain.Project, erro
 	normalizeGazette(&project)
 	normalizeAssist(&project)
 
+	// an off-window bearing snaps into the chart window before anything is
+	// stored, and a negative plate index snaps to zero
+	domain.ClampCoord(project.Coord)
+	domain.ClampPlate(&project.Plate)
+
 	if "" == project.Status {
 		project.Status = domain.StatusDraft
 	}
@@ -411,6 +416,11 @@ func (p projectCRUDService) Update(project domain.Project) (domain.Project, erro
 	// the same as none at all; drop it before anything is written
 	normalizeGazette(&project)
 	normalizeAssist(&project)
+
+	// an off-window bearing snaps into the chart window before anything is
+	// stored, and a negative plate index snaps to zero
+	domain.ClampCoord(project.Coord)
+	domain.ClampPlate(&project.Plate)
 
 	project.Status = existing.Status
 	project.PublishedAt = existing.PublishedAt

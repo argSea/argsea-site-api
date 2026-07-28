@@ -84,6 +84,9 @@ func (h hobbyCRUDService) Create(hobby domain.Hobby) (domain.Hobby, error) {
 	// an out-of-range gauge snaps to 0-100 before anything is stored
 	domain.ClampGauge(hobby.Gauge)
 
+	// a negative plate index snaps to zero before anything is stored
+	domain.ClampPlate(&hobby.Plate)
+
 	now := nowStamp()
 
 	hobby.Id = ""
@@ -150,6 +153,9 @@ func (h hobbyCRUDService) Update(hobby domain.Hobby) (domain.Hobby, error) {
 
 	// an out-of-range gauge snaps to 0-100 before anything is stored
 	domain.ClampGauge(hobby.Gauge)
+
+	// a negative plate index snaps to zero before anything is stored
+	domain.ClampPlate(&hobby.Plate)
 
 	hobby.CreatedAt = existing.CreatedAt
 	hobby.UpdatedAt = nowStamp()

@@ -113,7 +113,12 @@ func AssistEmpty(a *Assist) bool {
 // are dormant postcard-era fields: no longer written by the admin, preserved
 // so old documents and revisions stay readable. Gazette dresses the case study
 // in dead-tree copy and Assist records how much of it an AI harness wrote;
-// both drop to nil when their contents are effectively empty.
+// both drop to nil when their contents are effectively empty. Coord is where
+// the light sits on the wandering chart, with Hobby.Coord's semantics: a
+// pointer so an uncharted light serializes coord as JSON null rather than a
+// phantom origin at 0,0. It is the chart's placement and has nothing to do
+// with WallPos, which pins the same light on the coast panorama. Plate and Cap
+// are the chart dressing, meaningful whether or not the light is charted.
 type Project struct {
 	Id           string          `json:"id" bson:"_id,omitempty"`
 	Title        string          `json:"title" bson:"title,omitempty"`
@@ -138,6 +143,9 @@ type Project struct {
 	Order        int             `json:"order" bson:"order"`                         // no omitempty: 0 is a real rack position
 	Featured     bool            `json:"featured" bson:"featured"`                   // no omitempty: false must survive a replace write
 	PublishedAt  string          `json:"publishedAt" bson:"publishedAt"`             // no omitempty: unpublish must clear it
+	Coord        *Coord          `json:"coord" bson:"coord"`                         // nullable: null means uncharted, on the coast and off the chart
+	Plate        int             `json:"plate" bson:"plate"`                         // no omitempty: 0 is the undressed plate and clearing one must survive a replace write
+	Cap          string          `json:"cap" bson:"cap"`                             // no omitempty: empty is no caption and clearing one must survive a replace write
 	WallPos      *WallPos        `json:"wallPos,omitempty" bson:"wallPos,omitempty"` // nullable: nil means not yet placed on the wall
 	Gazette      *ProjectGazette `json:"gazette,omitempty" bson:"gazette,omitempty"` // nullable: only non-empty keys stored, a fully empty gazette is dropped
 	Assist       *Assist         `json:"assist,omitempty" bson:"assist,omitempty"`   // nullable: absent means lit by hand, stored only when harness or model is non-empty

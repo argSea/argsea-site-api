@@ -34,7 +34,8 @@ const (
 // NoteIds ties journal entries to this ship by stable Note id. Order is a
 // manual sort key so the keeper arranges the log by hand. Gauge is the ship's
 // self-assessed enthusiasm 0-100, clamped on write; a pointer so an older
-// hobby with no opinion stays unset rather than reading as zero.
+// hobby with no opinion stays unset rather than reading as zero. Plate and Cap
+// are the chart dressing, meaningful whether or not the ship is charted.
 type Hobby struct {
 	Id        string   `json:"id" bson:"_id,omitempty"`
 	Name      string   `json:"name" bson:"name,omitempty"`
@@ -42,6 +43,8 @@ type Hobby struct {
 	State     string   `json:"state" bson:"state"`
 	Coord     *Coord   `json:"coord" bson:"coord"`
 	From      *Coord   `json:"from" bson:"from"`
+	Plate     int      `json:"plate" bson:"plate"` // no omitempty: 0 is the undressed plate and clearing one must survive a replace write
+	Cap       string   `json:"cap" bson:"cap"`     // no omitempty: empty is no caption and clearing one must survive a replace write
 	Seasons   string   `json:"seasons" bson:"seasons"`
 	Bearing   string   `json:"bearing" bson:"bearing,omitempty"`
 	LastLog   string   `json:"lastLog" bson:"lastLog,omitempty"`
@@ -126,5 +129,21 @@ func ClampGauge(g *int) {
 
 	if gaugeMax < *g {
 		*g = gaugeMax
+	}
+}
+
+// The plate's floor. There is deliberately no ceiling: the site owns how many
+// photo plates exist and resolves an unknown index to its fallback plate, so an
+// upper clamp here would be the API guessing the site's plate count and going
+// stale the moment the site gains a plate.
+const plateMin = 0
+
+// ClampPlate snaps a chart plate index up to zero, the way ClampGauge snaps an
+// enthusiasm into its band. Shared by every chartable: the dressing follows the
+// entity while the coord decides chart presence, so a plate is clamped whether
+// or not the entity is charted.
+func ClampPlate(p *int) {
+	if plateMin > *p {
+		*p = plateMin
 	}
 }

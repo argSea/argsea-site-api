@@ -39,6 +39,11 @@ func (n noteCRUDService) Create(note domain.Note) (domain.Note, error) {
 	note.Id = ""
 	note.Body = utility.SanitizeHTML(note.Body)
 
+	// an off-window bearing snaps into the chart window before anything is
+	// stored, and a negative plate index snaps to zero
+	domain.ClampCoord(note.Coord)
+	domain.ClampPlate(&note.Plate)
+
 	if "" == note.Status {
 		note.Status = domain.StatusDraft
 	}
@@ -77,6 +82,12 @@ func (n noteCRUDService) Update(note domain.Note) (domain.Note, error) {
 	}
 
 	note.Body = utility.SanitizeHTML(note.Body)
+
+	// an off-window bearing snaps into the chart window before anything is
+	// stored, and a negative plate index snaps to zero
+	domain.ClampCoord(note.Coord)
+	domain.ClampPlate(&note.Plate)
+
 	note.Status = existing.Status
 	note.PublishedAt = existing.PublishedAt
 	note.CreatedAt = existing.CreatedAt
