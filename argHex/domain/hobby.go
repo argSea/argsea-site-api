@@ -35,7 +35,9 @@ const (
 // manual sort key so the keeper arranges the log by hand. Gauge is the ship's
 // self-assessed enthusiasm 0-100, clamped on write; a pointer so an older
 // hobby with no opinion stays unset rather than reading as zero. Plate and Cap
-// are the chart dressing, meaningful whether or not the ship is charted.
+// are the chart dressing, meaningful whether or not the ship is charted, and
+// Images is the gallery the plate indexes into: a project's gallery shape
+// exactly, first print leading by convention and capped at six.
 type Hobby struct {
 	Id        string   `json:"id" bson:"_id,omitempty"`
 	Name      string   `json:"name" bson:"name,omitempty"`
@@ -43,8 +45,9 @@ type Hobby struct {
 	State     string   `json:"state" bson:"state"`
 	Coord     *Coord   `json:"coord" bson:"coord"`
 	From      *Coord   `json:"from" bson:"from"`
-	Plate     int      `json:"plate" bson:"plate"` // no omitempty: 0 is the undressed plate and clearing one must survive a replace write
-	Cap       string   `json:"cap" bson:"cap"`     // no omitempty: empty is no caption and clearing one must survive a replace write
+	Plate     int      `json:"plate" bson:"plate"`             // no omitempty: 0 is the undressed plate and clearing one must survive a replace write
+	Cap       string   `json:"cap" bson:"cap"`                 // no omitempty: empty is no caption and clearing one must survive a replace write
+	Images    []string `json:"images" bson:"images,omitempty"` // gallery media names, capped at 6, first entry is the entry photo
 	Seasons   string   `json:"seasons" bson:"seasons"`
 	Bearing   string   `json:"bearing" bson:"bearing,omitempty"`
 	LastLog   string   `json:"lastLog" bson:"lastLog,omitempty"`
@@ -60,39 +63,12 @@ type Hobby struct {
 }
 
 // Coord is a point on the wandering chart. Lat/Lon are plain floats over the
-// keeper's fictional waters. Two different rules guard it depending on whose
-// coord it is: a hobby's snaps into the chart window below (see ClampCoord),
-// while a project's or a note's is only checked for being a real point on earth
-// (see CoordOnEarth). Which frame a berth renders in is the site's business.
+// keeper's fictional waters. One rule guards every coord, whoever owns it: it
+// has to be a real point on earth (see CoordOnEarth). Which frame a berth
+// renders in is the site's business.
 type Coord struct {
 	Lat float64 `json:"lat" bson:"lat"`
 	Lon float64 `json:"lon" bson:"lon"`
-}
-
-// The hobby chart's clamp band, and hobby's alone. The site transcribes the
-// mock's chart window (chartWin lat 57.80-58.58, lon -7.98 to -6.55) as
-// CHART_WIN; these inset it 3% per side so a mark snapped to a bound sits just
-// inside the frame instead of half-clipping at the edge. Projects and notes
-// deliberately do not use this band: it is a presentation window, and treating
-// it as the wire's law silently moved berths that sat above its ceiling.
-const (
-	chartLatMin = 57.82
-	chartLatMax = 58.56
-	chartLonMin = -7.94
-	chartLonMax = -6.59
-)
-
-// ClampCoord snaps a coord's lat/lon into the clamp band, so an off-window
-// bearing (a typo that would beach a ship in Mexico) lands at the nearest
-// visible edge rather than rendering off the chart. A nil coord is uncharted
-// and stays nil: the sanctioned off-chart state.
-func ClampCoord(c *Coord) {
-	if nil == c {
-		return
-	}
-
-	c.Lat = clamp(c.Lat, chartLatMin, chartLatMax)
-	c.Lon = clamp(c.Lon, chartLonMin, chartLonMax)
 }
 
 // The earth's own bounds. Nothing to do with any chart window: these are the
@@ -105,7 +81,7 @@ const (
 )
 
 // CoordOnEarth reports whether a coord is a real point on the globe, the shape
-// check a project's or a note's bearing gets on write. It deliberately does not
+// check every chartable's bearing gets on write. It deliberately does not
 // look at any chart window: a chart window is presentation, the site decides
 // which frame a berth renders in, and validating one here would silently move a
 // berth that sits outside it. A nil coord is uncharted, which is valid.
@@ -121,18 +97,6 @@ func CoordOnEarth(c *Coord) bool {
 	return earthLonMin <= c.Lon && earthLonMax >= c.Lon
 }
 
-func clamp(v, lo, hi float64) float64 {
-	if v < lo {
-		return lo
-	}
-
-	if v > hi {
-		return hi
-	}
-
-	return v
-}
-
 // ValidHobbyState reports whether state is one the log allows. Empty is not a
 // state: every ship stands somewhere.
 func ValidHobbyState(state string) bool {
@@ -145,8 +109,8 @@ const (
 	gaugeMax = 100
 )
 
-// ClampGauge snaps a hobby's enthusiasm into 0-100, the same way ClampCoord
-// snaps a bearing into the chart window. A nil gauge is unrated and stays
+// ClampGauge snaps a hobby's enthusiasm into 0-100, the same way ClampPlate
+// snaps a plate index up to zero. A nil gauge is unrated and stays
 // nil: the sanctioned no-opinion state, distinct from a gauge of 0.
 func ClampGauge(g *int) {
 	if nil == g {

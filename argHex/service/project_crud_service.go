@@ -184,8 +184,8 @@ func normalizeAssist(project *domain.Project) {
 // validateCoord gates a berth against the globe and nothing else. A chart
 // window is presentation: the site decides which frame a berth renders in, so
 // validating one here would silently move a berth that sits outside it, which
-// is exactly what clamping to the hobby chart's band did. Notes share this
-// validator; the hobby log keeps its own clamp.
+// is exactly what clamping to the hobby chart's band did. Every chartable
+// shares this validator: notes, and the hobby log now its band is retired.
 func validateCoord(coord *domain.Coord) error {
 	if !domain.CoordOnEarth(coord) {
 		return errors.New("coord must be a real point on earth: lat -90 to 90, lon -180 to 180")

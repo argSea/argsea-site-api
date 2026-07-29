@@ -240,8 +240,9 @@ func TestBerthFieldsRoundTripThroughTheStore(t *testing.T) {
 	}
 }
 
-// earthEdges walks the only band a project's or a note's bearing is held to.
-// The two in-band cases sit deliberately outside the hobby chart's old window:
+// earthEdges walks the only band any chartable's bearing is held to, a
+// project's, a note's and a hobby's alike. The two in-band cases sit
+// deliberately outside the hobby chart's old window:
 // clamping berths to that window is the bug this replaced, so a berth above its
 // ceiling has to survive untouched.
 var earthEdges = []struct {

@@ -21,14 +21,17 @@ func validateState(state string) error {
 	return nil
 }
 
-// clampBearings snaps a hobby's coord and wake origin into the chart window
-// before the write reaches the store, so an off-window bearing lands at the
-// nearest visible edge rather than off the chart. A null bearing is uncharted
-// and rides through untouched. The admin editor mirrors this clamp; here it is
-// the data-level truth that protects every client.
-func clampBearings(hobby *domain.Hobby) {
-	domain.ClampCoord(hobby.Coord)
-	domain.ClampCoord(hobby.From)
+// validateBearings holds a hobby's coord and wake origin to the globe and
+// nothing narrower, the same gate a project's and a note's bearing gets. The
+// hobby chart's window is presentation and the site owns it: enforcing it here
+// silently moved berths that sat above its ceiling. A null bearing is uncharted
+// and rides through.
+func validateBearings(hobby domain.Hobby) error {
+	if err := validateCoord(hobby.Coord); nil != err {
+		return err
+	}
+
+	return validateCoord(hobby.From)
 }
 
 type hobbyCRUDService struct {
@@ -78,8 +81,15 @@ func (h hobbyCRUDService) Create(hobby domain.Hobby) (domain.Hobby, error) {
 		return domain.Hobby{}, err
 	}
 
-	// an off-window bearing snaps into the chart window before anything is stored
-	clampBearings(&hobby)
+	if err := validateImages(hobby.Images); nil != err {
+		return domain.Hobby{}, err
+	}
+
+	// an off-earth bearing never reaches the store; the chart window a berth
+	// renders in is the site's call, not a write-time rule
+	if err := validateBearings(hobby); nil != err {
+		return domain.Hobby{}, err
+	}
 
 	// an out-of-range gauge snaps to 0-100 before anything is stored
 	domain.ClampGauge(hobby.Gauge)
@@ -149,7 +159,13 @@ func (h hobbyCRUDService) Update(hobby domain.Hobby) (domain.Hobby, error) {
 		return domain.Hobby{}, err
 	}
 
-	clampBearings(&hobby)
+	if err := validateImages(hobby.Images); nil != err {
+		return domain.Hobby{}, err
+	}
+
+	if err := validateBearings(hobby); nil != err {
+		return domain.Hobby{}, err
+	}
 
 	// an out-of-range gauge snaps to 0-100 before anything is stored
 	domain.ClampGauge(hobby.Gauge)
