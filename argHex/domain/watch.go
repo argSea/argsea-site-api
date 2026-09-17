@@ -6,6 +6,7 @@ package domain
 // clearing is just an authed write of an empty record; there is no delete.
 type Watch struct {
 	Id               string         `json:"id" bson:"_id,omitempty"`
+	Title            string         `json:"title" bson:"title,omitempty"`                       // the Helm's heading; "" means unset and the site falls back to its own
 	Letter           string         `json:"letter" bson:"letter,omitempty"`                     // hand-written; a blank line splits paragraphs
 	Rotation         string         `json:"rotation" bson:"rotation,omitempty"`                 // the not-doing line ("out of the rotation")
 	Bearings         []WatchBearing `json:"bearings" bson:"bearings,omitempty"`                 // the TL;DR strip; the service truncates past three
