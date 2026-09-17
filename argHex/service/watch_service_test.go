@@ -162,6 +162,50 @@ func TestSaveRoundTripsAnEmptyPostcard2MediaId(t *testing.T) {
 	}
 }
 
+func TestSaveRoundTripsTheTitle(t *testing.T) {
+	watch, _ := newWatch(t)
+
+	saved, err := watch.Save(domain.Watch{Title: "Fog on the approaches", Letter: "All quiet."})
+
+	if nil != err {
+		t.Fatalf("save failed: %v", err)
+	}
+
+	if "Fog on the approaches" != saved.Title {
+		t.Fatalf("expected title to round-trip through save, got %q", saved.Title)
+	}
+
+	kept := watch.Get()
+
+	if "Fog on the approaches" != kept.Title {
+		t.Fatalf("expected title to round-trip through get, got %q", kept.Title)
+	}
+}
+
+func TestALaterKeepWithoutATitleClearsIt(t *testing.T) {
+	watch, _ := newWatch(t)
+
+	if _, err := watch.Save(domain.Watch{Title: "Fog on the approaches", Letter: "All quiet."}); nil != err {
+		t.Fatalf("seed save failed: %v", err)
+	}
+
+	saved, err := watch.Save(domain.Watch{Letter: "Clear skies."})
+
+	if nil != err {
+		t.Fatalf("save failed: %v", err)
+	}
+
+	if "" != saved.Title {
+		t.Fatalf("expected the title to come back empty, got %q", saved.Title)
+	}
+
+	kept := watch.Get()
+
+	if "" != kept.Title {
+		t.Fatalf("expected the title to stay empty through get, got %q", kept.Title)
+	}
+}
+
 func TestEveryWatchSaveWritesAKeepersLogLine(t *testing.T) {
 	watch, activity := newWatch(t)
 
