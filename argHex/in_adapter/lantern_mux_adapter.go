@@ -44,13 +44,21 @@ func (a lanternMuxAdapter) Status(w http.ResponseWriter, r *http.Request) {
 }
 
 // Hoist starts a deploy: 202 with the fresh status, or 409 with the current
-// one when a hoist is already in flight.
+// one when a hoist is already in flight. Nothing published on the resume shelf
+// is a 409 as well, but carrying the message rather than the status body: the
+// state fields say nothing about it, and the fix is a thing the keeper has to
+// go and do.
 func (a lanternMuxAdapter) Hoist(w http.ResponseWriter, r *http.Request) {
 	if !requireAdmin(a.auth, w, r) {
 		return
 	}
 
 	status, err := a.lantern.Hoist()
+
+	if errors.Is(err, in_port.ErrNoPublishedResume) {
+		writeError(w, http.StatusConflict, err.Error())
+		return
+	}
 
 	if errors.Is(err, in_port.ErrHoistAlreadyRunning) {
 		writeJSON(w, http.StatusConflict, status)

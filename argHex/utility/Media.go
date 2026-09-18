@@ -17,6 +17,9 @@ var mimeToFileExt = map[string]string{
 	"video/ogg":  ".ogg",
 	"video/webm": ".webm",
 	"video/3gpp": ".3gp",
+
+	// documents
+	"application/pdf": ".pdf",
 }
 
 func MimeToFileExt(mime_type string) string {

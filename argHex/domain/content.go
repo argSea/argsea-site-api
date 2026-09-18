@@ -24,4 +24,5 @@ const (
 	EntityCaseLog    = "caselog"
 	EntityBlockSet   = "blockset"
 	EntityWatch      = "watch"
+	EntityResume     = "resume"
 )

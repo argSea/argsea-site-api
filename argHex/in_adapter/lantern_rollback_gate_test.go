@@ -28,6 +28,7 @@ func newRollbackRouter(t *testing.T, previous string, gate chan struct{}) (in_po
 		&out_adapter.LanternFakeRunner{Gate: gate},
 		releases,
 		&out_adapter.LanternFakeStateRepo{},
+		publishedShelf(),
 		service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
 	)
 
