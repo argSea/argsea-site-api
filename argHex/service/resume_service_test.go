@@ -1,6 +1,8 @@
 package service_test
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -117,6 +119,56 @@ func TestDeleteRefusesARecordThatCannotNameItsFile(t *testing.T) {
 
 	if "" == resumes.Read(id).Id {
 		t.Fatalf("a refused delete must leave the record in place")
+	}
+}
+
+// TestDeleteClearsThePdfBeforeTheRecord pins the order Delete's own docblock
+// leans on, the way TestPublishClearsBeforeItSets does for the publish
+// transition. Both orders end up somewhere defensible, so only a failure
+// between the two writes tells them apart: with the file first, a delete that
+// cannot reach the pdf leaves the record in place and stays retryable, where
+// clearing the record first would strand the pdf with nothing pointing at it.
+// The permission failure reaching the caller as itself is ruling 7 on this
+// path: the admin renders what the API returns, and "could not delete" would
+// hide a chmod the keeper has to go and undo.
+func TestDeleteClearsThePdfBeforeTheRecord(t *testing.T) {
+	if 0 == os.Geteuid() {
+		t.Skip("root ignores the directory mode this test denies the removal with")
+	}
+
+	resumes, _, dir := newShelf(t)
+
+	stored, err := resumes.Create(domain.Resume{Title: "one"}, "application/pdf", []byte("%PDF-fake"))
+
+	if nil != err {
+		t.Fatalf("upload failed: %v", err)
+	}
+
+	// a removal needs write on the directory, not on the file
+	if chmodErr := os.Chmod(dir, 0500); nil != chmodErr {
+		t.Fatalf("could not make the media directory unwritable: %v", chmodErr)
+	}
+
+	t.Cleanup(func() {
+		os.Chmod(dir, 0700) // TempDir cannot clean up behind itself otherwise
+	})
+
+	deleteErr := resumes.Delete(stored.Id)
+
+	if nil == deleteErr {
+		t.Fatalf("expected the delete to fail while the pdf cannot be removed")
+	}
+
+	if !errors.Is(deleteErr, fs.ErrPermission) {
+		t.Fatalf("the permission failure must reach the caller as itself, got %v", deleteErr)
+	}
+
+	if "" == resumes.Read(stored.Id).Id {
+		t.Fatalf("the record must survive a delete that could not clear the pdf")
+	}
+
+	if _, statErr := os.Stat(filepath.Join(dir, stored.Filename)); nil != statErr {
+		t.Fatalf("the pdf must still be on disk: %v", statErr)
 	}
 }
 

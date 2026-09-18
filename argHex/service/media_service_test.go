@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/argSea/argsea-site-api/argHex/in_port"
@@ -126,7 +125,7 @@ func TestUploadMediaRejectsSvg(t *testing.T) {
 }
 
 func TestUploadMediaAcceptsImage(t *testing.T) {
-	media, _, _ := newDarkroom(t)
+	media, _, dir := newDarkroom(t)
 
 	// a legit profile picture still goes through the base64 path
 	url, err := media.UploadMedia("image/png", []byte("png-bytes"))
@@ -135,13 +134,22 @@ func TestUploadMediaAcceptsImage(t *testing.T) {
 		t.Fatalf("expected image/png accepted on the base64 path, got %v", err)
 	}
 
-	// the file half hands back a name as well as a path now; what the user
-	// adapter stores on the profile is still the path, and a bare name would
-	// read as a relative url from whatever page rendered it. The prefix carries
-	// no slash on purpose: this path concatenates web_path and the name, and
-	// this harness configures web_path without a trailing one.
-	if !strings.HasPrefix(url, "/media/images") || !strings.HasSuffix(url, ".png") {
-		t.Fatalf("the base64 path must return the web path, got %q", url)
+	entries, readErr := os.ReadDir(dir)
+
+	if nil != readErr || 1 != len(entries) {
+		t.Fatalf("expected exactly the one uploaded file on disk, got %d / %v", len(entries), readErr)
+	}
+
+	// the file half hands back a name as well as a path now, and what the user
+	// adapter stores on the profile is still the path. The whole string is
+	// pinned rather than its ends: this path concatenates web_path and the name
+	// raw, and this harness configures web_path without a trailing slash, so a
+	// join that tidied that seam would rewrite every stored profile url while
+	// still starting and ending exactly right.
+	expected := "/media/images" + entries[0].Name()
+
+	if expected != url {
+		t.Fatalf("expected the raw concatenation %q, got %q", expected, url)
 	}
 }
 
