@@ -55,6 +55,104 @@ func emptyShelf() in_port.ResumeService {
 	)
 }
 
+// TestDeleteClearsThePdfWhateverTheWebPathSpelling pins that the stored
+// filename is the name on disk, not something carved back out of the web path.
+// A web_path without a trailing slash is a spelling the webstore adapter's own
+// docblock declares supported, and under it the derived name matched no file,
+// so a delete reported success and left the pdf behind.
+func TestDeleteClearsThePdfWhateverTheWebPathSpelling(t *testing.T) {
+	for _, webPath := range []string{"/media/images/", "/media/images"} {
+		dir := t.TempDir()
+
+		resumes := service.NewResumeService(
+			out_adapter.NewResumeFakeOutAdapter(),
+			out_adapter.NewMediaWebstoreAdapter(dir+string(filepath.Separator), webPath),
+			service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
+		)
+
+		stored, err := resumes.Create(domain.Resume{Title: "one"}, "application/pdf", []byte("%PDF-fake"))
+
+		if nil != err {
+			t.Fatalf("web_path %q: upload failed: %v", webPath, err)
+		}
+
+		if _, statErr := os.Stat(filepath.Join(dir, stored.Filename)); nil != statErr {
+			t.Fatalf("web_path %q: the stored filename must name the file on disk: %v", webPath, statErr)
+		}
+
+		if err := resumes.Delete(stored.Id); nil != err {
+			t.Fatalf("web_path %q: delete failed: %v", webPath, err)
+		}
+
+		entries, _ := os.ReadDir(dir)
+
+		if 0 != len(entries) {
+			t.Fatalf("web_path %q: delete reported success and left %d file(s) on disk", webPath, len(entries))
+		}
+	}
+}
+
+// TestDeleteRefusesARecordThatCannotNameItsFile pins the other way a delete
+// could report success over an orphan: an empty name resolves to the media
+// directory itself, and RemoveNamed would report whatever it did to that as a
+// clean delete.
+func TestDeleteRefusesARecordThatCannotNameItsFile(t *testing.T) {
+	repo := out_adapter.NewResumeFakeOutAdapter()
+	id, _ := repo.Add(domain.Resume{Title: "nameless"})
+	dir := t.TempDir()
+
+	resumes := service.NewResumeService(
+		repo,
+		out_adapter.NewMediaWebstoreAdapter(dir+string(filepath.Separator), "/media/images/"),
+		service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
+	)
+
+	if err := resumes.Delete(id); nil == err {
+		t.Fatalf("expected a record with no filename refused rather than cleared")
+	}
+
+	if _, statErr := os.Stat(dir); nil != statErr {
+		t.Fatalf("the media directory itself must survive: %v", statErr)
+	}
+
+	if "" == resumes.Read(id).Id {
+		t.Fatalf("a refused delete must leave the record in place")
+	}
+}
+
+// TestPublishClearsBeforeItSets pins the write order the publish docblock leans
+// on. The finished state reads the same either way round, so only the order of
+// the writes shows it: clearing first means a failure in between leaves nothing
+// published, which the hoist refuses loudly, instead of two cuts claiming the
+// shelf in silence.
+func TestPublishClearsBeforeItSets(t *testing.T) {
+	repo := out_adapter.NewResumeFakeOutAdapter()
+	first, _ := repo.Add(domain.Resume{Title: "one", Published: true})
+	second, _ := repo.Add(domain.Resume{Title: "two"})
+
+	resumes := service.NewResumeService(
+		repo,
+		out_adapter.NewMediaWebstoreAdapter("", "/media/images/"),
+		service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
+	)
+
+	if _, err := resumes.Publish(second); nil != err {
+		t.Fatalf("publish failed: %v", err)
+	}
+
+	expected := []string{first + "=false", second + "=true"}
+
+	if len(expected) != len(repo.Writes) {
+		t.Fatalf("expected exactly the clear then the set, got %+v", repo.Writes)
+	}
+
+	for i, write := range expected {
+		if write != repo.Writes[i] {
+			t.Fatalf("expected writes %+v, got %+v", expected, repo.Writes)
+		}
+	}
+}
+
 func TestCreateResumeStoresThePdfUnderAGeneratedName(t *testing.T) {
 	resumes, activity, dir := newShelf(t)
 

@@ -24,7 +24,10 @@ func NewMediaWebstoreAdapter(save_path string, web_path string) out_port.MediaRe
 	}
 }
 
-func (m mediaWebstoreAdapter) UploadMedia(mime_type string, bytes []byte) (string, error) {
+// UploadMedia returns the generated name alongside the web path. The path is
+// still the legacy concatenation, kept exactly as it was; the name is handed
+// back separately so a caller never has to reverse that spelling to get it.
+func (m mediaWebstoreAdapter) UploadMedia(mime_type string, bytes []byte) (string, string, error) {
 	file_type := utility.MimeToFileExt(mime_type)
 
 	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -43,7 +46,7 @@ func (m mediaWebstoreAdapter) UploadMedia(mime_type string, bytes []byte) (strin
 	file, err := os.Create(save_path + file_name)
 
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	defer file.Close()
@@ -52,11 +55,11 @@ func (m mediaWebstoreAdapter) UploadMedia(mime_type string, bytes []byte) (strin
 	_, err = file.Write(bytes)
 
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	// return file path
-	return web_path + file_name, nil
+	// return the name and the file path
+	return file_name, web_path + file_name, nil
 }
 
 // SaveNamed writes bytes under exactly file_name and returns the web path the

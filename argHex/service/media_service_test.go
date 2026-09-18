@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -73,6 +74,37 @@ func TestCreateMediaRejectsNonImages(t *testing.T) {
 
 	if 0 != len(listed) {
 		t.Fatalf("a rejected upload must leave no metadata, found %d items", len(listed))
+	}
+}
+
+// TestDarkroomRejectionNamesItsAllowlist pins both halves of the darkroom's
+// refusal: the message the keeper reads, and the error kind the adapter maps to
+// a 400. The resume shelf shares the chokepoint now, so a policy change on that
+// side must not reach either of these.
+func TestDarkroomRejectionNamesItsAllowlist(t *testing.T) {
+	media, _, _ := newDarkroom(t)
+
+	_, err := media.CreateMedia("payload.pdf", "application/pdf", []byte("nope"))
+
+	if nil == err {
+		t.Fatalf("expected application/pdf rejected by the darkroom")
+	}
+
+	var validation in_port.MediaValidationError
+
+	if !errors.As(err, &validation) {
+		t.Fatalf("the darkroom's refusal must be a MediaValidationError, which is what the adapter maps to a 400; got %T", err)
+	}
+
+	if "only image uploads are allowed (png, jpeg, gif, webp)" != err.Error() {
+		t.Fatalf("unexpected darkroom rejection message: %q", err.Error())
+	}
+
+	// the base64 path runs the same chokepoint and must read the same
+	_, uploadErr := media.UploadMedia("application/pdf", []byte("nope"))
+
+	if nil == uploadErr || uploadErr.Error() != err.Error() {
+		t.Fatalf("both darkroom paths must refuse alike, got %v", uploadErr)
 	}
 }
 

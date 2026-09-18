@@ -16,8 +16,9 @@ var ErrNoPreviousBuild = errors.New("no previous build to roll back to")
 
 // ErrNoPublishedResume is returned by Hoist when the resume shelf holds nothing
 // published, which would put the site up pointing at a resume that isn't there.
-// The adapter maps it to a 409 carrying this message rather than the status
-// body, because the fix is a thing the keeper has to go and do.
+// The adapter maps it to a 412 carrying this message: a 409 on that route
+// already means "a hoist is already running" to the admin that consumes it, and
+// this is an unmet precondition, not a collision with work in flight.
 var ErrNoPublishedResume = errors.New("no resume is published; publish one before hoisting")
 
 // LanternService is the deploy seam: Hoist kicks off the build → stage → swap

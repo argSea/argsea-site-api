@@ -82,7 +82,12 @@ func (m mediaService) UploadMedia(mime_type string, bytes []byte) (string, error
 		return "", err
 	}
 
-	return m.mediaRepo.UploadMedia(mime_type, bytes)
+	// this path hands its caller a web path and nothing else, exactly as it
+	// always has; the generated name is the resume shelf's concern, not the
+	// user adapter's
+	_, url, err := m.mediaRepo.UploadMedia(mime_type, bytes)
+
+	return url, err
 }
 
 // ListMedia returns every darkroom item newest first. Fixed-width stamps make

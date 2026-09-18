@@ -48,6 +48,55 @@ func newResumeRouter(t *testing.T) *mux.Router {
 	return router
 }
 
+// newResumeRouterWithAuth is newResumeRouter plus the auth service, so a test
+// can mint a token carrying a role.
+func newResumeRouterWithAuth(t *testing.T) (in_port.AuthService, *mux.Router) {
+	t.Helper()
+
+	authService := service.NewJWTAuthService(testSecret)
+	webAuth := in_adapter.NewWebAuth(authService, testSecret, "argsea.com")
+
+	resumeService := service.NewResumeService(
+		out_adapter.NewResumeFakeOutAdapter(),
+		out_adapter.NewMediaWebstoreAdapter(t.TempDir()+string(filepath.Separator), "/media/images/"),
+		service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
+	)
+
+	router := mux.NewRouter()
+	in_adapter.NewResumeMuxAdapter(resumeService, webAuth, router.PathPrefix("/1/resume").Subrouter())
+
+	return authService, router
+}
+
+// TestResumeWritesAreAdminOnly pins the role, not just the presence of a token.
+// A write downgraded to any valid token is a change no anonymous-only test can
+// see.
+func TestResumeWritesAreAdminOnly(t *testing.T) {
+	authService, router := newResumeRouterWithAuth(t)
+	token := mintRoleToken(t, authService, in_port.PERM_USER)
+
+	writes := []struct {
+		method string
+		path   string
+	}{
+		{"POST", "/1/resume/"},
+		{"PUT", "/1/resume/some-id"},
+		{"POST", "/1/resume/some-id/publish"},
+		{"DELETE", "/1/resume/some-id"},
+	}
+
+	for _, c := range writes {
+		req := httptest.NewRequest(c.method, c.path, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if http.StatusForbidden != rec.Code {
+			t.Fatalf("expected 403 for a plain-user %s %s, got %d", c.method, c.path, rec.Code)
+		}
+	}
+}
+
 func TestResumeRoutesAreAuthGated(t *testing.T) {
 	router := newResumeRouter(t)
 

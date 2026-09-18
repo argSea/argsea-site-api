@@ -45,9 +45,9 @@ func (a lanternMuxAdapter) Status(w http.ResponseWriter, r *http.Request) {
 
 // Hoist starts a deploy: 202 with the fresh status, or 409 with the current
 // one when a hoist is already in flight. Nothing published on the resume shelf
-// is a 409 as well, but carrying the message rather than the status body: the
-// state fields say nothing about it, and the fix is a thing the keeper has to
-// go and do.
+// is a 412 carrying the message instead: the admin reads a 409 on this route as
+// "already running" without looking at the body, so refusing an unmet
+// precondition with the same code would report a hoist that isn't there.
 func (a lanternMuxAdapter) Hoist(w http.ResponseWriter, r *http.Request) {
 	if !requireAdmin(a.auth, w, r) {
 		return
@@ -56,7 +56,7 @@ func (a lanternMuxAdapter) Hoist(w http.ResponseWriter, r *http.Request) {
 	status, err := a.lantern.Hoist()
 
 	if errors.Is(err, in_port.ErrNoPublishedResume) {
-		writeError(w, http.StatusConflict, err.Error())
+		writeError(w, http.StatusPreconditionFailed, err.Error())
 		return
 	}
 
@@ -75,8 +75,9 @@ func (a lanternMuxAdapter) Hoist(w http.ResponseWriter, r *http.Request) {
 
 // Rollback re-points the live link at the previous kept build; no rebuild.
 // 200 with the status on success; 409 while a hoist is in flight or when
-// nothing older is kept; both conflicts carry the LanternStatus body like
-// Hoist's 409, and the admin tells them apart by the state fields.
+// nothing older is kept; both conflicts carry the LanternStatus body, like the
+// hoist's own already-running 409, and the admin tells them apart by the state
+// fields. The hoist's other refusal is a 412 and carries a message instead.
 func (a lanternMuxAdapter) Rollback(w http.ResponseWriter, r *http.Request) {
 	if !requireAdmin(a.auth, w, r) {
 		return

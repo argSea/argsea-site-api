@@ -43,14 +43,18 @@ func newBareShelfLanternRouter(t *testing.T) (in_port.AuthService, *mux.Router) 
 	return authService, router
 }
 
-func TestHoistWithNoPublishedResumeIs409WithTheReason(t *testing.T) {
+// TestHoistWithNoPublishedResumeIs412WithTheReason pins the code as hard as the
+// body. It must not be 409: the installed admin reads a 409 on this route as
+// "a hoist is already running" without looking at the body, so refusing here
+// with one would have the deploy button report a hoist that does not exist.
+func TestHoistWithNoPublishedResumeIs412WithTheReason(t *testing.T) {
 	authService, router := newBareShelfLanternRouter(t)
 	token := mintRoleToken(t, authService, in_port.PERM_ADMIN)
 
 	rec := lanternRequest(t, router, "POST", "/1/lantern/hoist/", token)
 
-	if http.StatusConflict != rec.Code {
-		t.Fatalf("expected 409 when nothing is published, got %d", rec.Code)
+	if http.StatusPreconditionFailed != rec.Code {
+		t.Fatalf("expected 412 when nothing is published, got %d", rec.Code)
 	}
 
 	var body data_objects.ErroredResponseObject

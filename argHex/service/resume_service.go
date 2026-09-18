@@ -1,8 +1,8 @@
 package service
 
 import (
+	"errors"
 	"log"
-	"path"
 	"sort"
 
 	"github.com/argSea/argsea-site-api/argHex/domain"
@@ -73,15 +73,15 @@ func (r resumeService) Create(resume domain.Resume, mime_type string, bytes []by
 		return domain.Resume{}, in_port.ResumeValidationError{Message: "a title is required"}
 	}
 
-	url, err := r.files.UploadMedia(mime_type, bytes)
+	// the name comes back from the file half rather than being carved out of the
+	// web path: RemoveNamed takes the name, and how the adapter joins one onto
+	// web_path is its business, not something this side may assume a shape for
+	file_name, url, err := r.files.UploadMedia(mime_type, bytes)
 
 	if nil != err {
 		return domain.Resume{}, err
 	}
 
-	// the generated name only comes back inside the web path the file half
-	// returns; the shelf keeps it so a delete can reach the file again
-	file_name := path.Base(url)
 	now := nowStamp()
 
 	id, err := r.repo.Add(domain.Resume{
@@ -198,7 +198,7 @@ func (r resumeService) Published() (domain.Resume, error) {
 	return domain.Resume{}, nil
 }
 
-// Delete removes the record and the PDF behind it. A published cut is not
+// Delete removes the PDF and the record behind it. A published cut is not
 // protected: taking the live resume off the shelf is a thing the keeper may
 // mean, and the hoist guard is what tells him nothing is published afterwards.
 func (r resumeService) Delete(id string) error {
@@ -208,11 +208,21 @@ func (r resumeService) Delete(id string) error {
 		return in_port.ResumeValidationError{Message: "resume not found"}
 	}
 
-	if err := r.repo.Remove(id); nil != err {
+	if "" == resume.Filename {
+		// an empty name resolves to the media directory itself, and RemoveNamed
+		// would report whatever it did to it as a clean delete; a record that
+		// cannot name its file is one to stop on, not guess behind
+		return errors.New("resume record carries no filename; its pdf has to be cleared by hand")
+	}
+
+	// the file goes first: a failure here leaves the record intact and the
+	// delete retryable, where clearing the record first strands the pdf on disk
+	// with nothing left pointing at it
+	if err := r.files.RemoveNamed(resume.Filename); nil != err {
 		return err
 	}
 
-	if err := r.files.RemoveNamed(resume.Filename); nil != err {
+	if err := r.repo.Remove(id); nil != err {
 		return err
 	}
 
