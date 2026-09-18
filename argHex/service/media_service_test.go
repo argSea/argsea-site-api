@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/argSea/argsea-site-api/argHex/in_port"
@@ -128,8 +129,19 @@ func TestUploadMediaAcceptsImage(t *testing.T) {
 	media, _, _ := newDarkroom(t)
 
 	// a legit profile picture still goes through the base64 path
-	if _, err := media.UploadMedia("image/png", []byte("png-bytes")); nil != err {
+	url, err := media.UploadMedia("image/png", []byte("png-bytes"))
+
+	if nil != err {
 		t.Fatalf("expected image/png accepted on the base64 path, got %v", err)
+	}
+
+	// the file half hands back a name as well as a path now; what the user
+	// adapter stores on the profile is still the path, and a bare name would
+	// read as a relative url from whatever page rendered it. The prefix carries
+	// no slash on purpose: this path concatenates web_path and the name, and
+	// this harness configures web_path without a trailing one.
+	if !strings.HasPrefix(url, "/media/images") || !strings.HasSuffix(url, ".png") {
+		t.Fatalf("the base64 path must return the web path, got %q", url)
 	}
 }
 
