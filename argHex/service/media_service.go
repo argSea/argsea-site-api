@@ -23,6 +23,40 @@ var mediaImageTypes = map[string]bool{
 	"image/webp": true,
 }
 
+// imageUploads is the darkroom's own slice of the policy: the image set above,
+// the message that names it, and the error kind the media adapter maps to a
+// 400.
+var imageUploads = uploadPolicy{
+	types:     mediaImageTypes,
+	rejection: "only image uploads are allowed (png, jpeg, gif, webp)",
+	reject:    mediaRejection,
+}
+
+func mediaRejection(message string) error {
+	return in_port.MediaValidationError{Message: message}
+}
+
+// uploadPolicy is what one destination allows: the content types it takes, the
+// rejection a client reads when anything else arrives, and the error kind the
+// destination's own seam speaks in. Policy travels with the caller rather than
+// living in the chokepoint, so opening one destination to a new content type
+// can never open another.
+type uploadPolicy struct {
+	types     map[string]bool
+	rejection string
+	reject    func(message string) error
+}
+
+// allow is the single upload-policy chokepoint every upload path runs through,
+// whatever its destination, so the accept/reject decision has one home.
+func (p uploadPolicy) allow(mime_type string) error {
+	if !p.types[mime_type] {
+		return p.reject(p.rejection)
+	}
+
+	return nil
+}
+
 type mediaService struct {
 	mediaRepo out_port.MediaRepo
 	meta      out_port.MediaMetaRepo
@@ -44,22 +78,16 @@ func NewMediaService(mediaRepo out_port.MediaRepo, meta out_port.MediaMetaRepo, 
 // document. It shares the same image-type gate as CreateMedia so neither pipe
 // can land an svg on disk.
 func (m mediaService) UploadMedia(mime_type string, bytes []byte) (string, error) {
-	if err := allowedImageType(mime_type); nil != err {
+	if err := imageUploads.allow(mime_type); nil != err {
 		return "", err
 	}
 
-	return m.mediaRepo.UploadMedia(mime_type, bytes)
-}
+	// this path hands its caller a web path and nothing else, exactly as it
+	// always has; the generated name is the resume shelf's concern, not the
+	// user adapter's
+	_, url, err := m.mediaRepo.UploadMedia(mime_type, bytes)
 
-// allowedImageType is the single upload-policy chokepoint both the named and the
-// base64 path run through, so the allowlist and its rejection message have one
-// home.
-func allowedImageType(mime_type string) error {
-	if !mediaImageTypes[mime_type] {
-		return in_port.MediaValidationError{Message: "only image uploads are allowed (png, jpeg, gif, webp)"}
-	}
-
-	return nil
+	return url, err
 }
 
 // ListMedia returns every darkroom item newest first. Fixed-width stamps make
@@ -82,7 +110,7 @@ func (m mediaService) ListMedia() (domain.MediaList, error) {
 // disk and a metadata document in mongo. The filename is reduced to its base
 // so an upload can never escape the media directory.
 func (m mediaService) CreateMedia(file_name string, mime_type string, bytes []byte) (domain.Media, error) {
-	if err := allowedImageType(mime_type); nil != err {
+	if err := imageUploads.allow(mime_type); nil != err {
 		return domain.Media{}, err
 	}
 

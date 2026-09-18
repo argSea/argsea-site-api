@@ -33,6 +33,7 @@ type lanternService struct {
 	runner   out_port.BuildRunner
 	releases out_port.ReleaseStore
 	state    out_port.LanternStateRepo
+	resumes  in_port.ResumeService
 	activity in_port.ActivityService
 
 	mu     sync.Mutex
@@ -41,7 +42,7 @@ type lanternService struct {
 
 // NewLanternService wires the hoist pipeline onto its seams and loads the
 // persisted lastHoistedAt so the status is right from the first poll.
-func NewLanternService(cfg LanternConfig, runner out_port.BuildRunner, releases out_port.ReleaseStore, state out_port.LanternStateRepo, activity in_port.ActivityService) in_port.LanternService {
+func NewLanternService(cfg LanternConfig, runner out_port.BuildRunner, releases out_port.ReleaseStore, state out_port.LanternStateRepo, resumes in_port.ResumeService, activity in_port.ActivityService) in_port.LanternService {
 	lastHoistedAt, err := state.LastHoistedAt()
 
 	if nil != err {
@@ -53,6 +54,7 @@ func NewLanternService(cfg LanternConfig, runner out_port.BuildRunner, releases 
 		runner:   runner,
 		releases: releases,
 		state:    state,
+		resumes:  resumes,
 		activity: activity,
 		status: domain.LanternStatus{
 			State:         domain.LanternIdle,
@@ -63,8 +65,21 @@ func NewLanternService(cfg LanternConfig, runner out_port.BuildRunner, releases 
 
 // Hoist starts a hoist in the background and returns the fresh status. It is
 // single-flight: while one is running it returns the current status with
-// in_port.ErrHoistAlreadyRunning and starts nothing.
+// in_port.ErrHoistAlreadyRunning and starts nothing. It also refuses outright
+// while nothing is published on the resume shelf, checked here rather than
+// anywhere downstream so the refusal costs nothing instead of arriving after a
+// full build.
 func (l *lanternService) Hoist() (domain.LanternStatus, error) {
+	published, resumeErr := l.resumes.Published()
+
+	if nil != resumeErr {
+		return l.Status(), resumeErr
+	}
+
+	if "" == published.Id {
+		return l.Status(), in_port.ErrNoPublishedResume
+	}
+
 	l.mu.Lock()
 
 	if domain.LanternBuilding == l.status.State || domain.LanternSwapping == l.status.State {

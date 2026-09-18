@@ -22,6 +22,7 @@ func newRollbackHarness(gate chan struct{}, previous string) (in_port.LanternSer
 		&out_adapter.LanternFakeRunner{Gate: gate},
 		releases,
 		&out_adapter.LanternFakeStateRepo{},
+		publishedShelf(),
 		activity,
 	)
 

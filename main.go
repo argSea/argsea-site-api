@@ -135,6 +135,7 @@ func main() {
 	revisionTable := "revisions"
 	lanternTable := "lantern"
 	mediaTable := "media"
+	resumeTable := "resumes"
 	catDesignTable := "catDesigns"
 	doodleTable := "doodles"
 	carvingTable := "carvings"
@@ -155,6 +156,7 @@ func main() {
 	activityRouter := router.PathPrefix("/1/activity").Subrouter()
 	authRouter := router.PathPrefix("/1/auth").Subrouter()
 	mediaRouter := router.PathPrefix("/1/media").Subrouter()
+	resumeRouter := router.PathPrefix("/1/resume").Subrouter()
 	figureheadRouter := router.PathPrefix("/1/figurehead").Subrouter()
 	doodleRouter := router.PathPrefix("/1/doodle").Subrouter()
 	carvingRouter := router.PathPrefix("/1/carving").Subrouter()
@@ -274,8 +276,18 @@ func main() {
 	save_path := viper.GetString("media.images.save_path")
 	web_path := viper.GetString("media.images.web_path")
 	mediaMordor := stores.NewMordor(mongo_db.DB.Collection(mediaTable), context.Background())
-	mediaService := service.NewMediaService(out_adapter.NewMediaWebstoreAdapter(save_path, web_path), out_adapter.NewMediaMetaMongoAdapter(mediaMordor), activityService)
+	mediaWebstore := out_adapter.NewMediaWebstoreAdapter(save_path, web_path)
+	mediaService := service.NewMediaService(mediaWebstore, out_adapter.NewMediaMetaMongoAdapter(mediaMordor), activityService)
 	in_adapter.NewMediaMuxAdapter(mediaService, webAuth, mediaRouter)
+
+	// the resume shelf: many stored cuts, exactly one published. The PDFs land
+	// on the same disk half the darkroom writes to, under generated names, so
+	// nothing an upload writes can collide with a print already there. Wired
+	// ahead of the lantern, which refuses to hoist while nothing is published.
+	log.Println("Initializing resume")
+	resumeMordor := stores.NewMordor(mongo_db.DB.Collection(resumeTable), context.Background())
+	resumeService := service.NewResumeService(out_adapter.NewResumeMongoAdapter(resumeMordor), mediaWebstore, activityService)
+	in_adapter.NewResumeMuxAdapter(resumeService, webAuth, resumeRouter)
 
 	// the figurehead shop (cat designs): the seed plants the shipped v1 cats
 	// into an empty collection so "go back to v1" is always possible; on every
@@ -408,6 +420,7 @@ func main() {
 			out_adapter.NewLanternExecAdapter(),
 			out_adapter.NewLanternFSReleaseAdapter(viper.GetString("lantern.releases_dir"), viper.GetString("lantern.live_link")),
 			out_adapter.NewLanternMongoAdapter(lanternMordor),
+			resumeService,
 			activityService,
 		)
 		lanternRouter := router.PathPrefix("/1/lantern").Subrouter()

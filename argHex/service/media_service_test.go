@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -76,6 +77,37 @@ func TestCreateMediaRejectsNonImages(t *testing.T) {
 	}
 }
 
+// TestDarkroomRejectionNamesItsAllowlist pins both halves of the darkroom's
+// refusal: the message the keeper reads, and the error kind the adapter maps to
+// a 400. The resume shelf shares the chokepoint now, so a policy change on that
+// side must not reach either of these.
+func TestDarkroomRejectionNamesItsAllowlist(t *testing.T) {
+	media, _, _ := newDarkroom(t)
+
+	_, err := media.CreateMedia("payload.pdf", "application/pdf", []byte("nope"))
+
+	if nil == err {
+		t.Fatalf("expected application/pdf rejected by the darkroom")
+	}
+
+	var validation in_port.MediaValidationError
+
+	if !errors.As(err, &validation) {
+		t.Fatalf("the darkroom's refusal must be a MediaValidationError, which is what the adapter maps to a 400; got %T", err)
+	}
+
+	if "only image uploads are allowed (png, jpeg, gif, webp)" != err.Error() {
+		t.Fatalf("unexpected darkroom rejection message: %q", err.Error())
+	}
+
+	// the base64 path runs the same chokepoint and must read the same
+	_, uploadErr := media.UploadMedia("application/pdf", []byte("nope"))
+
+	if nil == uploadErr || uploadErr.Error() != err.Error() {
+		t.Fatalf("both darkroom paths must refuse alike, got %v", uploadErr)
+	}
+}
+
 func TestUploadMediaRejectsSvg(t *testing.T) {
 	media, _, dir := newDarkroom(t)
 
@@ -93,11 +125,31 @@ func TestUploadMediaRejectsSvg(t *testing.T) {
 }
 
 func TestUploadMediaAcceptsImage(t *testing.T) {
-	media, _, _ := newDarkroom(t)
+	media, _, dir := newDarkroom(t)
 
 	// a legit profile picture still goes through the base64 path
-	if _, err := media.UploadMedia("image/png", []byte("png-bytes")); nil != err {
+	url, err := media.UploadMedia("image/png", []byte("png-bytes"))
+
+	if nil != err {
 		t.Fatalf("expected image/png accepted on the base64 path, got %v", err)
+	}
+
+	entries, readErr := os.ReadDir(dir)
+
+	if nil != readErr || 1 != len(entries) {
+		t.Fatalf("expected exactly the one uploaded file on disk, got %d / %v", len(entries), readErr)
+	}
+
+	// the file half hands back a name as well as a path now, and what the user
+	// adapter stores on the profile is still the path. The whole string is
+	// pinned rather than its ends: this path concatenates web_path and the name
+	// raw, and this harness configures web_path without a trailing slash, so a
+	// join that tidied that seam would rewrite every stored profile url while
+	// still starting and ending exactly right.
+	expected := "/media/images" + entries[0].Name()
+
+	if expected != url {
+		t.Fatalf("expected the raw concatenation %q, got %q", expected, url)
 	}
 }
 

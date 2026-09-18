@@ -60,7 +60,8 @@ document; roles are never accepted from request bodies, so admin is granted
 only by a direct DB update.
 
 ```bash
-# start a hoist: 202 with the fresh status, 409 if one is already running
+# start a hoist: 202 with the fresh status, 409 if one is already running,
+# 412 if no resume is published yet (the body carries the reason)
 curl -X POST 'http://127.0.0.1:8181/1/lantern/hoist/' -H 'Authorization: Bearer <admin jwt>'
 
 # poll it, state: idle|building|swapping|succeeded|failed, plus startedAt,

@@ -29,6 +29,7 @@ func newLanternRouter(t *testing.T) (in_port.AuthService, chan struct{}, *mux.Ro
 		&out_adapter.LanternFakeRunner{Gate: gate},
 		&out_adapter.LanternFakeReleaseStore{},
 		&out_adapter.LanternFakeStateRepo{},
+		publishedShelf(),
 		service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
 	)
 

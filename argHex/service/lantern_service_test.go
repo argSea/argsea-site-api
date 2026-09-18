@@ -43,6 +43,7 @@ func newLanternHarness(t *testing.T, buildCmd []string, keep int) (in_port.Lante
 		out_adapter.NewLanternExecAdapter(),
 		out_adapter.NewLanternFSReleaseAdapter(releasesDir, liveLink),
 		state,
+		publishedShelf(),
 		activity,
 	)
 
@@ -189,6 +190,7 @@ func TestHoistIsSingleFlight(t *testing.T) {
 		runner,
 		releases,
 		state,
+		publishedShelf(),
 		activity,
 	)
 
@@ -271,6 +273,7 @@ func TestStatusOutputIsBoundedTail(t *testing.T) {
 		runner,
 		releases,
 		&out_adapter.LanternFakeStateRepo{},
+		publishedShelf(),
 		service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
 	)
 
@@ -296,6 +299,7 @@ func TestFailureOutputIsBoundedTail(t *testing.T) {
 		runner,
 		&out_adapter.LanternFakeReleaseStore{},
 		&out_adapter.LanternFakeStateRepo{},
+		publishedShelf(),
 		service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
 	)
 
