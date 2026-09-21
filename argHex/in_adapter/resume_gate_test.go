@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -31,15 +32,32 @@ func publishedShelf() in_port.ResumeService {
 }
 
 // newPublishedResumeRouter mounts the resume adapter over a shelf holding one
-// published cut, the only state the public read has anything to hand out. The
-// auth service and the shelf come back so a test can mint an admin token and
-// find the live cut's id.
+// published cut, the only state the public read has anything to hand out. It
+// builds its own shelf rather than borrowing publishedShelf, whose webstore has
+// no save path: the delete route reaches the file half, and an empty save path
+// resolves the stored name against the working directory. The pdf is real so a
+// delete has something to clear. The auth service and the shelf come back so a
+// test can mint an admin token and find the live cut's id.
 func newPublishedResumeRouter(t *testing.T) (in_port.AuthService, in_port.ResumeService, *mux.Router) {
 	t.Helper()
 
 	authService := service.NewJWTAuthService(testSecret)
 	webAuth := in_adapter.NewWebAuth(authService, testSecret, "argsea.com")
-	resumes := publishedShelf()
+
+	dir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(dir, "kept.pdf"), []byte("%PDF-fake"), 0600); nil != err {
+		t.Fatalf("could not lay down the stored pdf: %v", err)
+	}
+
+	repo := out_adapter.NewResumeFakeOutAdapter()
+	repo.Add(domain.Resume{Title: "senior software engineer", Published: true, Filename: "kept.pdf", URL: "/media/images/kept.pdf"})
+
+	resumes := service.NewResumeService(
+		repo,
+		out_adapter.NewMediaWebstoreAdapter(dir+string(filepath.Separator), "/media/images/"),
+		service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
+	)
 
 	router := mux.NewRouter()
 	in_adapter.NewResumeMuxAdapter(resumes, webAuth, router.PathPrefix("/1/resume").Subrouter())
@@ -101,6 +119,7 @@ func TestResumeWritesAreAdminOnly(t *testing.T) {
 		{"POST", "/1/resume/"},
 		{"PUT", "/1/resume/some-id"},
 		{"POST", "/1/resume/some-id/publish"},
+		{"POST", "/1/resume/some-id/unpublish"},
 		{"DELETE", "/1/resume/some-id"},
 	}
 
@@ -131,6 +150,7 @@ func TestResumeRoutesAreAuthGated(t *testing.T) {
 		{"POST", "/1/resume/"},
 		{"PUT", "/1/resume/some-id"},
 		{"POST", "/1/resume/some-id/publish"},
+		{"POST", "/1/resume/some-id/unpublish"},
 		{"DELETE", "/1/resume/some-id"},
 	}
 
@@ -231,4 +251,71 @@ func TestDeletingThePublishedResumeIs409(t *testing.T) {
 	if http.StatusConflict != rec.Code {
 		t.Fatalf("expected 409 deleting the published cut, got %d: %s", rec.Code, rec.Body.String())
 	}
+}
+
+// TestUnpublishThenDeleteTheOnlyCut walks the whole route the delete refusal
+// points the keeper down, over a shelf holding exactly one cut: the case that
+// had no way out before unpublish existed. Both spellings of the path are
+// exercised, the first for real and the second against the cut already down.
+func TestUnpublishThenDeleteTheOnlyCut(t *testing.T) {
+	authService, resumes, router := newPublishedResumeRouter(t)
+	token := mintRoleToken(t, authService, in_port.PERM_ADMIN)
+
+	listed, _ := resumes.List()
+	id := listed[0].Id
+
+	if rec := resumeRequest(t, router, "DELETE", "/1/resume/"+id, token); http.StatusConflict != rec.Code {
+		t.Fatalf("expected 409 while the cut is up, got %d", rec.Code)
+	}
+
+	for _, path := range []string{"/1/resume/" + id + "/unpublish", "/1/resume/" + id + "/unpublish/"} {
+		rec := resumeRequest(t, router, "POST", path, token)
+
+		if http.StatusOK != rec.Code {
+			t.Fatalf("%s: expected 200 for the admin unpublish, got %d: %s", path, rec.Code, rec.Body.String())
+		}
+
+		var saved domain.Resume
+		json.Unmarshal(rec.Body.Bytes(), &saved)
+
+		if saved.Published {
+			t.Fatalf("%s: expected the cut handed back down, got %+v", path, saved)
+		}
+	}
+
+	// the public read has nothing to hand out once the hoist is empty
+	if rec := resumeRequest(t, router, "GET", "/1/resume/published", ""); http.StatusNotFound != rec.Code {
+		t.Fatalf("expected 404 from the public read with the hoist empty, got %d", rec.Code)
+	}
+
+	if rec := resumeRequest(t, router, "DELETE", "/1/resume/"+id, token); http.StatusOK != rec.Code {
+		t.Fatalf("expected 200 deleting the cut once it is down, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestUnpublishAnUnknownIdIs400 pins the unknown id landing on the shelf's
+// validation branch rather than the 500 everything unrecognised maps to.
+func TestUnpublishAnUnknownIdIs400(t *testing.T) {
+	authService, _, router := newPublishedResumeRouter(t)
+	token := mintRoleToken(t, authService, in_port.PERM_ADMIN)
+
+	if rec := resumeRequest(t, router, "POST", "/1/resume/nope/unpublish", token); http.StatusBadRequest != rec.Code {
+		t.Fatalf("expected 400 unpublishing an unknown id, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// resumeRequest fires one call at the shelf, with a bearer token when given.
+func resumeRequest(t *testing.T, router *mux.Router, method string, path string, token string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(method, path, nil)
+
+	if "" != token {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	return rec
 }

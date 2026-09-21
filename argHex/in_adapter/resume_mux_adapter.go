@@ -47,6 +47,8 @@ func NewResumeMuxAdapter(resume in_port.ResumeService, auth *WebAuth, router *mu
 	router.HandleFunc("/{id}", a.Delete).Methods("DELETE")
 	router.HandleFunc("/{id}/publish", a.Publish).Methods("POST")
 	router.HandleFunc("/{id}/publish/", a.Publish).Methods("POST")
+	router.HandleFunc("/{id}/unpublish", a.Unpublish).Methods("POST")
+	router.HandleFunc("/{id}/unpublish/", a.Unpublish).Methods("POST")
 
 	return &a
 }
@@ -179,6 +181,23 @@ func (a resumeMuxAdapter) Publish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	saved, err := a.resume.Publish(mux.Vars(r)["id"])
+
+	if nil != err {
+		writeError(w, resumeErrorCode(err), err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, saved)
+}
+
+// Unpublish takes the live cut down and leaves the hoist empty, which is what a
+// keeper who means to delete it does first.
+func (a resumeMuxAdapter) Unpublish(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(a.auth, w, r) {
+		return
+	}
+
+	saved, err := a.resume.Unpublish(mux.Vars(r)["id"])
 
 	if nil != err {
 		writeError(w, resumeErrorCode(err), err.Error())

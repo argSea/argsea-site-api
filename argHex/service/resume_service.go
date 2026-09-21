@@ -180,6 +180,37 @@ func (r resumeService) Publish(id string) (domain.Resume, error) {
 	return saved, nil
 }
 
+// Unpublish takes the cut down off the hoist without putting anything up in its
+// place, which is what a delete needs: a published cut cannot be removed, and
+// publishing a different one is not always what the keeper means. It leaves the
+// shelf with nothing published, a state the shelf already has, since that is
+// what an empty one looks like to Published and the hoist guard already refuses
+// on it. Unpublishing a cut that is already down writes nothing: the caller
+// asked for it not to be live and it is not, so there is no stamp to move.
+func (r resumeService) Unpublish(id string) (domain.Resume, error) {
+	target := r.repo.Get(id)
+
+	if "" == target.Id {
+		return domain.Resume{}, in_port.ResumeValidationError{Message: "resume not found"}
+	}
+
+	if !target.Published {
+		return target, nil
+	}
+
+	target.Published = false
+	target.UpdatedAt = nowStamp()
+
+	if err := r.repo.Set(target); nil != err {
+		return domain.Resume{}, err
+	}
+
+	saved := r.repo.Get(target.Id)
+	r.record("resume \""+saved.Title+"\" unpublished", saved.Id)
+
+	return saved, nil
+}
+
 // Published is the one live cut, or a zero Resume when the shelf holds none.
 // The hoist asks this before it builds anything.
 func (r resumeService) Published() (domain.Resume, error) {
@@ -203,7 +234,7 @@ func (r resumeService) Published() (domain.Resume, error) {
 // published record always has its PDF: the file goes first below, so a delete
 // that got past here and then failed clearing the record would leave the shelf
 // claiming a live resume whose file is gone, and the hoist guard would pass on
-// it. Publish another cut first; that transition is the only way off the hoist.
+// it. Unpublish first, which is the transition that exists for exactly this.
 func (r resumeService) Delete(id string) error {
 	resume := r.repo.Get(id)
 
