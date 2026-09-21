@@ -440,3 +440,58 @@ func TestListResumesIsNewestFirst(t *testing.T) {
 		t.Fatalf("expected newest first, got %+v", listed)
 	}
 }
+
+// TestDeleteRefusesThePublishedCut pins the refusal that keeps a published
+// record from outliving its own pdf. Delete clears the file before the record,
+// so without this a failure between the two writes would leave the shelf
+// claiming a live resume whose file is gone; publishing another cut is what
+// frees the old one.
+func TestDeleteRefusesThePublishedCut(t *testing.T) {
+	resumes, _, dir := newShelf(t)
+
+	first, _ := resumes.Create(domain.Resume{Title: "one"}, "application/pdf", []byte("first"))
+	second, _ := resumes.Create(domain.Resume{Title: "two"}, "application/pdf", []byte("second"))
+
+	if _, err := resumes.Publish(first.Id); nil != err {
+		t.Fatalf("publish failed: %v", err)
+	}
+
+	if err := resumes.Delete(first.Id); !errors.Is(err, in_port.ErrResumePublished) {
+		t.Fatalf("expected the published cut refused, got %v", err)
+	}
+
+	if "" == resumes.Read(first.Id).Id {
+		t.Fatalf("a refused delete must leave the record in place")
+	}
+
+	if _, statErr := os.Stat(filepath.Join(dir, first.Filename)); nil != statErr {
+		t.Fatalf("a refused delete must leave the pdf on disk: %v", statErr)
+	}
+
+	if _, err := resumes.Publish(second.Id); nil != err {
+		t.Fatalf("second publish failed: %v", err)
+	}
+
+	if err := resumes.Delete(first.Id); nil != err {
+		t.Fatalf("expected the superseded cut deletable, got %v", err)
+	}
+}
+
+// TestDeleteRefusesThePublishedCutBeforeItReachesTheDisk pins the order of the
+// two guards: a published record that cannot name its file is refused as
+// published, which is the thing the keeper can act on, not as a record to go
+// and clear by hand.
+func TestDeleteRefusesThePublishedCutBeforeItReachesTheDisk(t *testing.T) {
+	repo := out_adapter.NewResumeFakeOutAdapter()
+	id, _ := repo.Add(domain.Resume{Title: "nameless but live", Published: true})
+
+	resumes := service.NewResumeService(
+		repo,
+		out_adapter.NewMediaWebstoreAdapter(t.TempDir()+string(filepath.Separator), "/media/images/"),
+		service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
+	)
+
+	if err := resumes.Delete(id); !errors.Is(err, in_port.ErrResumePublished) {
+		t.Fatalf("expected the published refusal ahead of the filename guard, got %v", err)
+	}
+}

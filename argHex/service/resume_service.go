@@ -198,14 +198,21 @@ func (r resumeService) Published() (domain.Resume, error) {
 	return domain.Resume{}, nil
 }
 
-// Delete removes the PDF and the record behind it. A published cut is not
-// protected: taking the live resume off the shelf is a thing the keeper may
-// mean, and the hoist guard is what tells him nothing is published afterwards.
+// Delete removes the PDF and the record behind it, and refuses outright while
+// the cut is the published one. The invariant that refusal protects is that a
+// published record always has its PDF: the file goes first below, so a delete
+// that got past here and then failed clearing the record would leave the shelf
+// claiming a live resume whose file is gone, and the hoist guard would pass on
+// it. Publish another cut first; that transition is the only way off the hoist.
 func (r resumeService) Delete(id string) error {
 	resume := r.repo.Get(id)
 
 	if "" == resume.Id {
 		return in_port.ResumeValidationError{Message: "resume not found"}
+	}
+
+	if resume.Published {
+		return in_port.ErrResumePublished
 	}
 
 	if "" == resume.Filename {

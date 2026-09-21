@@ -21,14 +21,21 @@ type resumeMuxAdapter struct {
 	auth   *WebAuth
 }
 
-// NewResumeMuxAdapter wires the resume shelf's routes. Every route is authed:
-// the titles and notes on the shelf are the keeper's own working copy, and the
-// PDFs themselves are served static off disk, never through this API.
+// NewResumeMuxAdapter wires the resume shelf's routes. The published read is
+// public: the site build consumes it anonymously, the same way it consumes the
+// figurehead shop's. Every other route is authed, because the titles and notes
+// on the shelf are the keeper's own working copy, and the PDFs themselves are
+// served static off disk, never through this API.
 func NewResumeMuxAdapter(resume in_port.ResumeService, auth *WebAuth, router *mux.Router) *resumeMuxAdapter {
 	a := resumeMuxAdapter{
 		resume: resume,
 		auth:   auth,
 	}
+
+	// ahead of /{id}: mux takes the first route that matches, so a literal
+	// registered after the id pattern would never be reached
+	router.HandleFunc("/published", a.Published).Methods("GET")
+	router.HandleFunc("/published/", a.Published).Methods("GET")
 
 	router.HandleFunc("", a.List).Methods("GET")
 	router.HandleFunc("/", a.List).Methods("GET")
@@ -42,6 +49,33 @@ func NewResumeMuxAdapter(resume in_port.ResumeService, auth *WebAuth, router *mu
 	router.HandleFunc("/{id}/publish/", a.Publish).Methods("POST")
 
 	return &a
+}
+
+// publicResume is the published read's wire shape: the url of the live PDF and
+// nothing else. Everything else a Resume carries is either the keeper's own
+// working copy (title, notes) or shelf bookkeeping (id, filename, stamps), and
+// published itself is a constant on a route that serves nothing else.
+type publicResume struct {
+	URL string `json:"url"`
+}
+
+// Published hands out the one live cut; no auth, this is what the site builds
+// its resume link against. Nothing on the shelf is a 404 rather than an empty
+// object, so a consumer cannot mistake "none published" for a blank url.
+func (a resumeMuxAdapter) Published(w http.ResponseWriter, r *http.Request) {
+	resume, err := a.resume.Published()
+
+	if nil != err {
+		writeError(w, 500, err.Error())
+		return
+	}
+
+	if "" == resume.Id {
+		writeError(w, 404, "no resume is published")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, publicResume{URL: resume.URL})
 }
 
 func (a resumeMuxAdapter) List(w http.ResponseWriter, r *http.Request) {
@@ -167,11 +201,16 @@ func (a resumeMuxAdapter) Delete(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, data_objects.ItemLessResponseObject{Status: "ok", Code: 200})
 }
 
-// resumeErrorCode maps a service error onto its status: 400 when the request
-// itself was rejected, 500 when the infrastructure (disk, mongo) failed. Either
-// way the message is the error's own, so a permission failure on the media
-// directory reaches the admin as one.
+// resumeErrorCode maps a service error onto its status: 409 when the shelf
+// refuses a transition it will not make, 400 when the request itself was
+// rejected, 500 when the infrastructure (disk, mongo) failed. Either way the
+// message is the error's own, so a permission failure on the media directory
+// reaches the admin as one.
 func resumeErrorCode(err error) int64 {
+	if errors.Is(err, in_port.ErrResumePublished) {
+		return 409
+	}
+
 	var validation in_port.ResumeValidationError
 
 	if errors.As(err, &validation) {
