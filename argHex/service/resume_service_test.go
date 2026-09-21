@@ -570,24 +570,32 @@ func TestUnpublishWritesNothingForACutAlreadyDown(t *testing.T) {
 	}
 }
 
-// TestUnpublishClearsOnlyTheCutItNames pins that it is not a shelf-wide sweep:
-// only one cut can be up at a time, so naming a draft must leave the live one
-// alone rather than quietly emptying the hoist.
-func TestUnpublishClearsOnlyTheCutItNames(t *testing.T) {
-	resumes, _, _ := newShelf(t)
+// TestUnpublishWritesOnlyTheCutItNames pins that taking one cut down is not a
+// shelf-wide sweep. The finished state cannot tell the two apart, because only
+// one cut is ever up, so this reads the writes: a sweep clearing every record
+// leaves the same hoist empty and the same Published answer, and shows up only
+// as the draft beside it losing its stamp.
+func TestUnpublishWritesOnlyTheCutItNames(t *testing.T) {
+	repo := out_adapter.NewResumeFakeOutAdapter()
+	live, _ := repo.Add(domain.Resume{Title: "live", Published: true, Filename: "live.pdf"})
+	draft, _ := repo.Add(domain.Resume{Title: "draft", UpdatedAt: "2026-09-01T00:00:00Z"})
 
-	live, _ := resumes.Create(domain.Resume{Title: "live"}, "application/pdf", []byte("live"))
-	draft, _ := resumes.Create(domain.Resume{Title: "draft"}, "application/pdf", []byte("draft"))
-	resumes.Publish(live.Id)
+	resumes := service.NewResumeService(
+		repo,
+		out_adapter.NewMediaWebstoreAdapter("", "/media/images/"),
+		service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
+	)
 
-	if _, err := resumes.Unpublish(draft.Id); nil != err {
+	if _, err := resumes.Unpublish(live); nil != err {
 		t.Fatalf("unpublish failed: %v", err)
 	}
 
-	published, _ := resumes.Published()
+	if 1 != len(repo.Writes) || live+"=false" != repo.Writes[0] {
+		t.Fatalf("expected exactly the one clear %q, got %+v", live+"=false", repo.Writes)
+	}
 
-	if live.Id != published.Id {
-		t.Fatalf("expected the live cut still up, got %+v", published)
+	if "2026-09-01T00:00:00Z" != resumes.Read(draft).UpdatedAt {
+		t.Fatalf("the draft beside it must be untouched, got %q", resumes.Read(draft).UpdatedAt)
 	}
 }
 
