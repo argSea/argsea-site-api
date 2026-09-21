@@ -537,36 +537,39 @@ func TestUnpublishTakesTheLiveCutDownAndFreesIt(t *testing.T) {
 	}
 }
 
-// TestUnpublishWritesNothingForACutAlreadyDown pins that the no-op really is
-// one. The caller asked for the cut not to be live and it is not, so a write
-// here would only move UpdatedAt and log a transition that never happened.
-func TestUnpublishWritesNothingForACutAlreadyDown(t *testing.T) {
+// TestUnpublishLogsACutAlreadyDown pins that a cut already down is written and
+// logged like any other. The cuts on the shelf are near-identical papers, so
+// naming the wrong one is the likely slip rather than a typo'd id, and a silent
+// success would leave the keeper nothing to notice it by.
+func TestUnpublishLogsACutAlreadyDown(t *testing.T) {
 	repo := out_adapter.NewResumeFakeOutAdapter()
 	id, _ := repo.Add(domain.Resume{Title: "a draft", UpdatedAt: "2026-09-01T00:00:00Z"})
 	activity := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())
 
 	resumes := service.NewResumeService(
 		repo,
-		out_adapter.NewMediaWebstoreAdapter("", "/media/images/"),
+		out_adapter.NewMediaWebstoreAdapter(t.TempDir()+string(filepath.Separator), "/media/images/"),
 		activity,
 	)
 
 	saved, err := resumes.Unpublish(id)
 
-	if nil != err || saved.Published {
-		t.Fatalf("expected the draft handed back down, got %+v / %v", saved, err)
+	if nil != err || saved.Published || id != saved.Id {
+		t.Fatalf("expected the named draft handed back down, got %+v / %v", saved, err)
 	}
 
-	if 0 != len(repo.Writes) {
-		t.Fatalf("expected no write for a cut already down, got %+v", repo.Writes)
+	if 1 != len(repo.Writes) || id+"=false" != repo.Writes[0] {
+		t.Fatalf("expected the one clear %q, got %+v", id+"=false", repo.Writes)
 	}
 
-	if "2026-09-01T00:00:00Z" != resumes.Read(id).UpdatedAt {
-		t.Fatalf("a no-op must not move the stamp, got %q", resumes.Read(id).UpdatedAt)
+	if "2026-09-01T00:00:00Z" == resumes.Read(id).UpdatedAt {
+		t.Fatalf("the write must move the stamp, still reads %q", resumes.Read(id).UpdatedAt)
 	}
 
-	if entries, _ := activity.Recent(10); 0 != len(entries) {
-		t.Fatalf("a no-op must log nothing, got %+v", entries)
+	entries, _ := activity.Recent(10)
+
+	if 1 != len(entries) {
+		t.Fatalf("expected the unpublish in the keeper's log, got %+v", entries)
 	}
 }
 
@@ -580,14 +583,19 @@ func TestUnpublishWritesOnlyTheCutItNames(t *testing.T) {
 	live, _ := repo.Add(domain.Resume{Title: "live", Published: true, Filename: "live.pdf"})
 	draft, _ := repo.Add(domain.Resume{Title: "draft", UpdatedAt: "2026-09-01T00:00:00Z"})
 
+	// a real save path, because the record names a file: an empty one resolves
+	// the stored name against the working directory, and a delete is all it
+	// would take to reach it
 	resumes := service.NewResumeService(
 		repo,
-		out_adapter.NewMediaWebstoreAdapter("", "/media/images/"),
+		out_adapter.NewMediaWebstoreAdapter(t.TempDir()+string(filepath.Separator), "/media/images/"),
 		service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
 	)
 
-	if _, err := resumes.Unpublish(live); nil != err {
-		t.Fatalf("unpublish failed: %v", err)
+	saved, err := resumes.Unpublish(live)
+
+	if nil != err || live != saved.Id {
+		t.Fatalf("expected the named cut handed back, got %+v / %v", saved, err)
 	}
 
 	if 1 != len(repo.Writes) || live+"=false" != repo.Writes[0] {

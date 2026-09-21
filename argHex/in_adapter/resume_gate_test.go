@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/argSea/argsea-site-api/argHex/domain"
@@ -192,10 +191,10 @@ func TestPublishedResumeReadIsPublic(t *testing.T) {
 	}
 }
 
-// TestPublishedResumeReadHandsOutNothingButTheUrl pins the cut field by field
-// against the raw body rather than a decoded struct, which would silently drop
-// whatever it does not name. The keeper's working copy stays off a route
-// anybody can call.
+// TestPublishedResumeReadHandsOutNothingButTheUrl derives the cut rather than
+// listing what to block: the body must carry exactly one key. A list of json
+// names holds only against the fields whoever wrote it thought of, and the
+// shelf's own filename rides out past it under any name not on the list.
 func TestPublishedResumeReadHandsOutNothingButTheUrl(t *testing.T) {
 	_, _, router := newPublishedResumeRouter(t)
 
@@ -203,16 +202,18 @@ func TestPublishedResumeReadHandsOutNothingButTheUrl(t *testing.T) {
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
-	body := rec.Body.String()
+	var body map[string]interface{}
 
-	for _, field := range []string{"id", "title", "notes", "filename", "published", "createdAt", "updatedAt"} {
-		if strings.Contains(body, `"`+field+`"`) {
-			t.Fatalf("the public read handed out %q: %s", field, body)
-		}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); nil != err {
+		t.Fatalf("the public read must answer with an object, got %s: %v", rec.Body.String(), err)
 	}
 
-	if strings.Contains(body, "senior software engineer") {
-		t.Fatalf("the public read handed out the keeper's title: %s", body)
+	if 1 != len(body) {
+		t.Fatalf("expected the url and nothing else, got %v", body)
+	}
+
+	if _, carried := body["url"]; !carried {
+		t.Fatalf("expected the one key to be url, got %v", body)
 	}
 }
 
@@ -278,8 +279,10 @@ func TestUnpublishThenDeleteTheOnlyCut(t *testing.T) {
 		var saved domain.Resume
 		json.Unmarshal(rec.Body.Bytes(), &saved)
 
-		if saved.Published {
-			t.Fatalf("%s: expected the cut handed back down, got %+v", path, saved)
+		// the id, not just the flag: a handler reaching for the wrong cut hands
+		// back something equally down and nothing else tells them apart
+		if saved.Published || id != saved.Id {
+			t.Fatalf("%s: expected the named cut handed back down, got %+v", path, saved)
 		}
 	}
 

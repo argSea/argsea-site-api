@@ -185,17 +185,14 @@ func (r resumeService) Publish(id string) (domain.Resume, error) {
 // publishing a different one is not always what the keeper means. It leaves the
 // shelf with nothing published, a state the shelf already has, since that is
 // what an empty one looks like to Published and the hoist guard already refuses
-// on it. Unpublishing a cut that is already down writes nothing: the caller
-// asked for it not to be live and it is not, so there is no stamp to move.
+// on it. A cut already down is written and logged like any other: the cuts on
+// the shelf are near-identical papers, so naming the wrong one is the likely
+// slip, and an entry in the keeper's log is what lets him see he made it.
 func (r resumeService) Unpublish(id string) (domain.Resume, error) {
 	target := r.repo.Get(id)
 
 	if "" == target.Id {
 		return domain.Resume{}, in_port.ResumeValidationError{Message: "resume not found"}
-	}
-
-	if !target.Published {
-		return target, nil
 	}
 
 	target.Published = false
