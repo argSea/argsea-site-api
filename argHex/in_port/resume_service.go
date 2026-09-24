@@ -1,6 +1,17 @@
 package in_port
 
-import "github.com/argSea/argsea-site-api/argHex/domain"
+import (
+	"errors"
+
+	"github.com/argSea/argsea-site-api/argHex/domain"
+)
+
+// ErrResumePublished is returned by Delete for the cut that is currently on the
+// hoist; the adapter maps it to a 409. Unpublish it first. The refusal is what
+// keeps a published record from outliving its own PDF: a delete clears the file
+// before the record, so anything that got past this could leave the shelf
+// claiming a live resume whose file is already gone.
+var ErrResumePublished = errors.New("a published resume cannot be deleted; unpublish it first")
 
 // ResumeValidationError marks a rejection of the request itself: a content type
 // the shelf does not take, a missing title, an unknown id, as opposed to an
@@ -15,16 +26,18 @@ func (e ResumeValidationError) Error() string {
 	return e.Message
 }
 
-// ResumeService is the resume shelf: CRUD over the stored cuts plus the one
-// transition they have. Exactly one cut is published at a time, so Publish
-// clears whichever held it, and Published is what the hoist asks before it
-// builds anything.
+// ResumeService is the resume shelf: CRUD over the stored cuts plus the two
+// transitions they have. At most one cut is published at a time, so Publish
+// clears whichever held it and Unpublish takes the live one down without
+// putting anything up in its place. Published is both what the hoist asks
+// before it builds anything and what the public read hands out.
 type ResumeService interface {
 	List() (domain.Resumes, error)
 	Read(id string) domain.Resume
 	Create(resume domain.Resume, mime_type string, bytes []byte) (domain.Resume, error)
 	Update(resume domain.Resume) (domain.Resume, error)
 	Publish(id string) (domain.Resume, error)
+	Unpublish(id string) (domain.Resume, error)
 	Published() (domain.Resume, error)
 	Delete(id string) error
 }

@@ -180,6 +180,34 @@ func (r resumeService) Publish(id string) (domain.Resume, error) {
 	return saved, nil
 }
 
+// Unpublish takes the cut down off the hoist without putting anything up in its
+// place, which is what a delete needs: a published cut cannot be removed, and
+// publishing a different one is not always what the keeper means. It leaves the
+// shelf with nothing published, a state the shelf already has, since that is
+// what an empty one looks like to Published and the hoist guard already refuses
+// on it. A cut already down is written and logged like any other: the cuts on
+// the shelf are near-identical papers, so naming the wrong one is the likely
+// slip, and an entry in the keeper's log is what lets him see he made it.
+func (r resumeService) Unpublish(id string) (domain.Resume, error) {
+	target := r.repo.Get(id)
+
+	if "" == target.Id {
+		return domain.Resume{}, in_port.ResumeValidationError{Message: "resume not found"}
+	}
+
+	target.Published = false
+	target.UpdatedAt = nowStamp()
+
+	if err := r.repo.Set(target); nil != err {
+		return domain.Resume{}, err
+	}
+
+	saved := r.repo.Get(target.Id)
+	r.record("resume \""+saved.Title+"\" unpublished", saved.Id)
+
+	return saved, nil
+}
+
 // Published is the one live cut, or a zero Resume when the shelf holds none.
 // The hoist asks this before it builds anything.
 func (r resumeService) Published() (domain.Resume, error) {
@@ -198,14 +226,21 @@ func (r resumeService) Published() (domain.Resume, error) {
 	return domain.Resume{}, nil
 }
 
-// Delete removes the PDF and the record behind it. A published cut is not
-// protected: taking the live resume off the shelf is a thing the keeper may
-// mean, and the hoist guard is what tells him nothing is published afterwards.
+// Delete removes the PDF and the record behind it, and refuses outright while
+// the cut is the published one. The invariant that refusal protects is that a
+// published record always has its PDF: the file goes first below, so a delete
+// that got past here and then failed clearing the record would leave the shelf
+// claiming a live resume whose file is gone, and the hoist guard would pass on
+// it. Unpublish first, which is the transition that exists for exactly this.
 func (r resumeService) Delete(id string) error {
 	resume := r.repo.Get(id)
 
 	if "" == resume.Id {
 		return in_port.ResumeValidationError{Message: "resume not found"}
+	}
+
+	if resume.Published {
+		return in_port.ErrResumePublished
 	}
 
 	if "" == resume.Filename {

@@ -440,3 +440,186 @@ func TestListResumesIsNewestFirst(t *testing.T) {
 		t.Fatalf("expected newest first, got %+v", listed)
 	}
 }
+
+// TestDeleteRefusesThePublishedCut pins the refusal that keeps a published
+// record from outliving its own pdf. Delete clears the file before the record,
+// so without this a failure between the two writes would leave the shelf
+// claiming a live resume whose file is gone; publishing another cut is what
+// frees the old one.
+func TestDeleteRefusesThePublishedCut(t *testing.T) {
+	resumes, _, dir := newShelf(t)
+
+	first, _ := resumes.Create(domain.Resume{Title: "one"}, "application/pdf", []byte("first"))
+	second, _ := resumes.Create(domain.Resume{Title: "two"}, "application/pdf", []byte("second"))
+
+	if _, err := resumes.Publish(first.Id); nil != err {
+		t.Fatalf("publish failed: %v", err)
+	}
+
+	if err := resumes.Delete(first.Id); !errors.Is(err, in_port.ErrResumePublished) {
+		t.Fatalf("expected the published cut refused, got %v", err)
+	}
+
+	if "" == resumes.Read(first.Id).Id {
+		t.Fatalf("a refused delete must leave the record in place")
+	}
+
+	if _, statErr := os.Stat(filepath.Join(dir, first.Filename)); nil != statErr {
+		t.Fatalf("a refused delete must leave the pdf on disk: %v", statErr)
+	}
+
+	if _, err := resumes.Publish(second.Id); nil != err {
+		t.Fatalf("second publish failed: %v", err)
+	}
+
+	if err := resumes.Delete(first.Id); nil != err {
+		t.Fatalf("expected the superseded cut deletable, got %v", err)
+	}
+}
+
+// TestDeleteRefusesThePublishedCutBeforeItReachesTheDisk pins the order of the
+// two guards: a published record that cannot name its file is refused as
+// published, which is the thing the keeper can act on, not as a record to go
+// and clear by hand.
+func TestDeleteRefusesThePublishedCutBeforeItReachesTheDisk(t *testing.T) {
+	repo := out_adapter.NewResumeFakeOutAdapter()
+	id, _ := repo.Add(domain.Resume{Title: "nameless but live", Published: true})
+
+	resumes := service.NewResumeService(
+		repo,
+		out_adapter.NewMediaWebstoreAdapter(t.TempDir()+string(filepath.Separator), "/media/images/"),
+		service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
+	)
+
+	if err := resumes.Delete(id); !errors.Is(err, in_port.ErrResumePublished) {
+		t.Fatalf("expected the published refusal ahead of the filename guard, got %v", err)
+	}
+}
+
+// TestUnpublishTakesTheLiveCutDownAndFreesIt pins the transition the delete
+// refusal presupposes: down off the hoist with nothing put up in its place, and
+// the cut then deletable. Publishing something else frees a cut too, but it is
+// not the same act, and a shelf holding one cut has no something else.
+func TestUnpublishTakesTheLiveCutDownAndFreesIt(t *testing.T) {
+	resumes, activity, dir := newShelf(t)
+
+	only, _ := resumes.Create(domain.Resume{Title: "the only cut"}, "application/pdf", []byte("only"))
+	resumes.Publish(only.Id)
+
+	saved, err := resumes.Unpublish(only.Id)
+
+	if nil != err {
+		t.Fatalf("unpublish failed: %v", err)
+	}
+
+	if saved.Published {
+		t.Fatalf("expected the cut down off the hoist, got %+v", saved)
+	}
+
+	published, _ := resumes.Published()
+
+	if "" != published.Id {
+		t.Fatalf("expected nothing published, got %+v", published)
+	}
+
+	entries, _ := activity.Recent(10)
+
+	if 3 != len(entries) {
+		t.Fatalf("expected the store, the publish and the unpublish logged, got %+v", entries)
+	}
+
+	if err := resumes.Delete(only.Id); nil != err {
+		t.Fatalf("expected the unpublished cut deletable, got %v", err)
+	}
+
+	if remaining, _ := os.ReadDir(dir); 0 != len(remaining) {
+		t.Fatalf("expected the pdf gone with the record, found %d file(s)", len(remaining))
+	}
+}
+
+// TestUnpublishLogsACutAlreadyDown pins that a cut already down is written and
+// logged like any other. The cuts on the shelf are near-identical papers, so
+// naming the wrong one is the likely slip rather than a typo'd id, and a silent
+// success would leave the keeper nothing to notice it by.
+func TestUnpublishLogsACutAlreadyDown(t *testing.T) {
+	repo := out_adapter.NewResumeFakeOutAdapter()
+	id, _ := repo.Add(domain.Resume{Title: "a draft", UpdatedAt: "2026-09-01T00:00:00Z"})
+	activity := service.NewActivityService(out_adapter.NewActivityFakeOutAdapter())
+
+	resumes := service.NewResumeService(
+		repo,
+		out_adapter.NewMediaWebstoreAdapter(t.TempDir()+string(filepath.Separator), "/media/images/"),
+		activity,
+	)
+
+	saved, err := resumes.Unpublish(id)
+
+	if nil != err || saved.Published || id != saved.Id {
+		t.Fatalf("expected the named draft handed back down, got %+v / %v", saved, err)
+	}
+
+	if 1 != len(repo.Writes) || id+"=false" != repo.Writes[0] {
+		t.Fatalf("expected the one clear %q, got %+v", id+"=false", repo.Writes)
+	}
+
+	if "2026-09-01T00:00:00Z" == resumes.Read(id).UpdatedAt {
+		t.Fatalf("the write must move the stamp, still reads %q", resumes.Read(id).UpdatedAt)
+	}
+
+	entries, _ := activity.Recent(10)
+
+	if 1 != len(entries) {
+		t.Fatalf("expected the unpublish in the keeper's log, got %+v", entries)
+	}
+}
+
+// TestUnpublishWritesOnlyTheCutItNames pins that taking one cut down is not a
+// shelf-wide sweep. The finished state cannot tell the two apart, because only
+// one cut is ever up, so this reads the writes: a sweep clearing every record
+// leaves the same hoist empty and the same Published answer, and shows up only
+// as the draft beside it losing its stamp.
+func TestUnpublishWritesOnlyTheCutItNames(t *testing.T) {
+	repo := out_adapter.NewResumeFakeOutAdapter()
+	live, _ := repo.Add(domain.Resume{Title: "live", Published: true, Filename: "live.pdf"})
+	draft, _ := repo.Add(domain.Resume{Title: "draft", UpdatedAt: "2026-09-01T00:00:00Z"})
+
+	// a real save path, because the record names a file: an empty one resolves
+	// the stored name against the working directory, and a delete is all it
+	// would take to reach it
+	resumes := service.NewResumeService(
+		repo,
+		out_adapter.NewMediaWebstoreAdapter(t.TempDir()+string(filepath.Separator), "/media/images/"),
+		service.NewActivityService(out_adapter.NewActivityFakeOutAdapter()),
+	)
+
+	saved, err := resumes.Unpublish(live)
+
+	if nil != err || live != saved.Id {
+		t.Fatalf("expected the named cut handed back, got %+v / %v", saved, err)
+	}
+
+	if 1 != len(repo.Writes) || live+"=false" != repo.Writes[0] {
+		t.Fatalf("expected exactly the one clear %q, got %+v", live+"=false", repo.Writes)
+	}
+
+	if "2026-09-01T00:00:00Z" != resumes.Read(draft).UpdatedAt {
+		t.Fatalf("the draft beside it must be untouched, got %q", resumes.Read(draft).UpdatedAt)
+	}
+}
+
+func TestUnpublishRejectsAnUnknownId(t *testing.T) {
+	resumes, _, _ := newShelf(t)
+
+	if _, err := resumes.Unpublish("nope"); nil == err {
+		t.Fatalf("expected unpublish to reject an unknown resume id")
+	}
+}
+
+// TestTheDeleteRefusalPointsAtUnpublishing pins the message, not just the
+// refusal. It is the only instruction the keeper gets when a delete bounces,
+// and it named publishing another cut back when that was the only way down.
+func TestTheDeleteRefusalPointsAtUnpublishing(t *testing.T) {
+	if !strings.Contains(in_port.ErrResumePublished.Error(), "unpublish") {
+		t.Fatalf("the refusal must send the keeper to unpublish, reads %q", in_port.ErrResumePublished.Error())
+	}
+}
